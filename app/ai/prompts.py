@@ -61,3 +61,62 @@ def render_tags(tags: dict[str, list[tuple[str, str]]]) -> str:
 
 def text_system_prompt(members: list[PromptMember], tags: dict[str, list[tuple[str, str]]]) -> str:
     return TEXT_SYSTEM.format(members=render_members(members), tags=render_tags(tags))
+
+
+_COMMON_RULES = """\
+- Усі тексти — українською. Іншомовні назви й рецепти перекладай; загальновідомі назви \
+(«Тірамісу») лишай як є. Назву пиши з великої літери, коротко і по суті («Сирники з манкою», \
+а не «Пухкі та ніжні: сирники від шефа»).
+- Теги — ЛИШЕ slug зі списків нижче; невідоме — порожнє. Тег можна ставити з власних знань \
+про страву.
+- Інгредієнти й кроки — лише з наданих даних, нічого не вигадуй. Немає — порожні масиви; \
+кількості й час — null, якщо їх немає.
+- cooks — лише id членів сім'ї, названих у коментарі користувача (з урахуванням синонімів).
+
+Члени сім'ї (id: ім'я; синоніми):
+{members}
+
+Довідники тегів (slug — назва):
+{tags}
+"""
+
+LINK_SYSTEM = (
+    """\
+Користувач надіслав посилання на рецепт (сайт, TikTok, Instagram чи YouTube). Тобі дають те, \
+що вдалося дістати: назву, підпис або текст сторінки, інколи структурований рецепт (JSON), \
+і коментар користувача. Поверни dishes з ОДНІЄЮ стравою — тією, якій присвячене посилання.
+
+- Якщо даних мало (лише підпис без рецепта) — все одно дай назву страви й теги, а \
+has_recipe=false. Якщо зрозуміти страву неможливо — поверни порожній масив dishes.
+- status: want_to_try, якщо коментар користувача не каже, що вони вже це готують/вміють.
+"""
+    + _COMMON_RULES
+)
+
+PHOTO_SYSTEM = (
+    """\
+Користувач надіслав фото (можливо, з підписом). На фото може бути:
+- recipe — скріншот рецепта, сторінка кулінарної книги, рукописний рецепт: витягни назву, \
+інгредієнти й кроки так, як вони написані;
+- dish — фото готової страви: назви страву, яку видно (або з підпису), постав теги; \
+інгредієнти й кроки — порожні;
+- other — щось, що не стосується їжі: kind=other і порожній dishes.
+Поверни kind і dishes (зазвичай одна страва).
+
+- status: для dish — can_cook (страву приготували); для recipe — want_to_try, якщо підпис \
+не каже, що вже вміють.
+"""
+    + _COMMON_RULES
+)
+
+
+def _fill(template: str, members: list[PromptMember], tags: dict[str, list[tuple[str, str]]]):
+    return template.format(members=render_members(members), tags=render_tags(tags))
+
+
+def link_system_prompt(members: list[PromptMember], tags: dict[str, list[tuple[str, str]]]) -> str:
+    return _fill(LINK_SYSTEM, members, tags)
+
+
+def photo_system_prompt(members: list[PromptMember], tags: dict[str, list[tuple[str, str]]]) -> str:
+    return _fill(PHOTO_SYSTEM, members, tags)

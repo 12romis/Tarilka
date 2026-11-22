@@ -94,3 +94,10 @@ def clean_draft(
         "confidence": draft.confidence,
         "has_recipe": draft.has_recipe,
     }
+
+
+class PhotoParse(BaseModel):
+    """Відповідь vision: що на фото і які страви з нього вийшли."""
+
+    kind: Literal["recipe", "dish", "other"]
+    dishes: list[DishDraft]

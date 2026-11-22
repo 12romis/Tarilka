@@ -96,6 +96,12 @@ async def find_by_title(session: AsyncSession, family_id: int, title: str) -> Di
     return None
 
 
+async def find_by_url(session: AsyncSession, family_id: int, url: str) -> Dish | None:
+    return await session.scalar(
+        select(Dish).where(Dish.family_id == family_id, Dish.source_url == url).limit(1)
+    )
+
+
 async def merge_draft(session: AsyncSession, meta: FamilyMeta, dish: Dish, draft: Draft) -> Dish:
     """Доповнює наявну страву чернеткою: нічого не перезаписує, лише додає.
 

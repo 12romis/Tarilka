@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4.1-mini"
     stt_model: str = "gpt-4o-mini-transcribe"
 
+    # Імпорт за посиланням
+    ytdlp_cookies_file: str = "/secrets/cookies.txt"  # Netscape-формат; без файлу теж працює
+    fetch_timeout_s: float = 15
+    max_image_mb: int = 10
+    page_text_limit: int = 12000
+
     # Worker
     worker_concurrency: int = 2
     worker_poll_s: float = 2.0
