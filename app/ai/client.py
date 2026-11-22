@@ -17,7 +17,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class AIError(Exception):
-    """Помилка AI-провайдера, придатна для показу людині (без технічних деталей)."""
+    """Будь-яка помилка AI-провайдера; клієнти загортають у неї власні винятки SDK."""
 
 
 class AIClient(Protocol):
@@ -30,8 +30,11 @@ class AIClient(Protocol):
 
 class OpenAIClient:
     def __init__(self, settings: Settings) -> None:
-        from openai import AsyncOpenAI
+        from openai import AsyncOpenAI, OpenAIError
+        from pydantic import ValidationError
 
+        # Помилки API/мережі та невалідна structured-відповідь → AIError.
+        self._sdk_errors = (OpenAIError, ValidationError)
         self._client = AsyncOpenAI(api_key=settings.llm_api_key, timeout=90, max_retries=1)
         self.model = settings.llm_model
         self.stt_model = settings.stt_model
@@ -46,15 +49,18 @@ class OpenAIClient:
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
             )
         started = time.monotonic()
-        resp = await self._client.chat.completions.parse(
-            model=self.model,
-            temperature=0,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": content},
-            ],
-            response_format=schema,
-        )
+        try:
+            resp = await self._client.chat.completions.parse(
+                model=self.model,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": content},
+                ],
+                response_format=schema,
+            )
+        except self._sdk_errors as e:
+            raise AIError(repr(e)) from e
         msg = resp.choices[0].message
         if msg.parsed is None:
             raise AIError(msg.refusal or "модель не повернула відповідь")
@@ -73,10 +79,13 @@ class OpenAIClient:
 
     async def transcribe(self, audio_path: Path) -> tuple[str, dict[str, Any]]:
         started = time.monotonic()
-        with audio_path.open("rb") as f:
-            resp = await self._client.audio.transcriptions.create(
-                model=self.stt_model, file=f, language="uk"
-            )
+        try:
+            with audio_path.open("rb") as f:
+                resp = await self._client.audio.transcriptions.create(
+                    model=self.stt_model, file=f, language="uk"
+                )
+        except self._sdk_errors as e:
+            raise AIError(repr(e)) from e
         return resp.text.strip(), {
             "model": self.stt_model,
             "seconds": round(time.monotonic() - started, 2),

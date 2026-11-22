@@ -1,8 +1,19 @@
 from sqlalchemy import select
 
 from app.ai.schemas import DishDraft, clean_draft
-from app.db.models import CookLog, Dish, DishCook, DishStatus, DishTag, JobKind, JobStatus, Tag
+from app.db.models import (
+    CookLog,
+    Dish,
+    DishCook,
+    DishStatus,
+    DishTag,
+    JobKind,
+    JobStatus,
+    SourceType,
+    Tag,
+)
 from app.services import dishes as dish_svc
+from app.services import draft_fields as fields
 from app.services import drafts as dr
 from app.services.jobs import enqueue
 from app.services.members import add_member
@@ -55,18 +66,18 @@ def test_clean_draft_keeps_found_cooks() -> None:
 
 def test_toggle_ingredient_main_first() -> None:
     d: dict = {"main_ingredient": None, "ingredient_tags": []}
-    dr.toggle_tag(d, "ingredient", "potato")
-    dr.toggle_tag(d, "ingredient", "mushrooms")
+    fields.toggle_tag(d, "ingredient", "potato")
+    fields.toggle_tag(d, "ingredient", "mushrooms")
     assert (d["main_ingredient"], d["ingredient_tags"]) == ("potato", ["mushrooms"])
-    dr.toggle_tag(d, "ingredient", "potato")  # прибрали основний → основним стає наступний
+    fields.toggle_tag(d, "ingredient", "potato")  # прибрали основний → основним стає наступний
     assert (d["main_ingredient"], d["ingredient_tags"]) == ("mushrooms", [])
-    dr.toggle_tag(d, "cuisine", "ukrainian")
+    fields.toggle_tag(d, "cuisine", "ukrainian")
     assert d["cuisine"] == "ukrainian"
-    dr.toggle_tag(d, "cuisine", "ukrainian")
+    fields.toggle_tag(d, "cuisine", "ukrainian")
     assert d["cuisine"] is None
-    dr.toggle_tag(d, "meal", "dinner")
+    fields.toggle_tag(d, "meal", "dinner")
     assert d["meal"] == ["dinner"]
-    dr.toggle_tag(d, "meal", "dinner")
+    fields.toggle_tag(d, "meal", "dinner")
     assert d["meal"] == []
 
 
@@ -75,10 +86,7 @@ async def _job_with(session, drafts: list[dict], author: int):
         session, family_id=1, kind=JobKind.text, payload={"text": "x"}, created_by=author
     )
     job.status = JobStatus.draft_ready
-    job.result = {
-        "drafts": [d | {"state": "pending", "dish_id": None} for d in drafts],
-        "view": "summary",
-    }
+    job.result = dr.new_result(drafts, source_text="x", source_type=SourceType.manual)
     await session.commit()
     return job
 

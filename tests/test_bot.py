@@ -1,15 +1,9 @@
 """Сценарії бота наскрізно через Dispatcher з фейковим Bot API."""
 
-from aiogram.types import Update
-
 from app import texts
 from app.bot.router import build_dispatcher
 from app.services.members import add_member
-from tests.conftest import make_message_update
-
-
-async def feed(dp, bot, upd: dict) -> None:
-    await dp.feed_update(bot, Update.model_validate(upd, context={"bot": bot}))
+from tests.conftest import feed, make_message_update
 
 
 async def test_start_for_member(sessionmaker, session, fake_bot) -> None:

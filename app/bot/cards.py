@@ -1,7 +1,6 @@
 """Тексти й клавіатури карток: чернетка, зведена картка, меню-перемикачі, пропозиції."""
 
 from datetime import datetime
-from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -11,12 +10,13 @@ from app.bot.keyboards import DraftCb
 from app.db.models import ImportJob
 from app.services import drafts as dr
 from app.services.dishes import DishInfo
+from app.services.draft_fields import Draft, tag_slugs
 from app.services.meta import KIND_ORDER, FamilyMeta
 
 Card = tuple[str, InlineKeyboardMarkup | None]
 
 
-def _title_emoji(meta: FamilyMeta, d: dict[str, Any]) -> str:
+def _title_emoji(meta: FamilyMeta, d: Draft) -> str:
     for slug in d.get("course") or []:
         if (t := meta.tag("course", slug)) and t.emoji:
             return t.emoji
@@ -31,10 +31,14 @@ def _labels(meta: FamilyMeta, kind: str, slugs: list[str], with_emoji: bool = Fa
     return out
 
 
-def draft_text(meta: FamilyMeta, d: dict[str, Any]) -> str:
+def _cook_names(meta: FamilyMeta, d: Draft) -> list[str]:
+    return [meta.member_by_id[c].name for c in d.get("cooks") or [] if c in meta.member_by_id]
+
+
+def draft_text(meta: FamilyMeta, d: Draft) -> str:
     """Опис однієї чернетки (без кнопок)."""
     line: list[str] = []
-    cooks = [meta.member_by_id[c].name for c in d.get("cooks") or [] if c in meta.member_by_id]
+    cooks = _cook_names(meta, d)
     if cooks:
         line.append("👤 " + ", ".join(cooks))
     line += _labels(meta, "meal", d.get("meal") or [], with_emoji=True)
@@ -90,7 +94,7 @@ def render_summary(meta: FamilyMeta, job: ImportJob) -> Card:
     lines = []
     for n, d in enumerate(ds, 1):
         mark = {"saved": "✅ ", "discarded": "🗑 "}.get(d["state"], "")
-        cooks = [meta.member_by_id[c].name for c in d.get("cooks") or [] if c in meta.member_by_id]
+        cooks = _cook_names(meta, d)
         extra = "  ·  ".join(
             (["👤 " + ", ".join(cooks)] if cooks else [])
             + _labels(meta, "meal", d.get("meal") or [], with_emoji=True)
@@ -152,7 +156,7 @@ def render_tag_kinds(meta: FamilyMeta, job: ImportJob, i: int) -> Card:
     d = dr.drafts(job)[i]
     kb = InlineKeyboardBuilder()
     for kind in KIND_ORDER:
-        n = len(dr.selected_slugs(d, kind.value))
+        n = len(tag_slugs(d, kind.value))
         kb.button(
             text=texts.TAG_KINDS[kind.value] + (f" ({n})" if n else ""),
             callback_data=DraftCb(job=job.id, i=i, a="tk", arg=kind.value),
@@ -164,7 +168,7 @@ def render_tag_kinds(meta: FamilyMeta, job: ImportJob, i: int) -> Card:
 
 def render_tag_toggles(meta: FamilyMeta, job: ImportJob, i: int, kind: str) -> Card:
     d = dr.drafts(job)[i]
-    selected = dr.selected_slugs(d, kind)
+    selected = tag_slugs(d, kind)
     kb = InlineKeyboardBuilder()
     for t in meta.kind_tags(kind):
         if t.slug in selected:

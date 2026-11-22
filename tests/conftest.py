@@ -235,3 +235,34 @@ def dish_json(title: str, **kw: Any) -> dict[str, Any]:
         "notes": None,
     }
     return base | kw
+
+
+# --- Хелпери наскрізних сценаріїв -------------------------------------------------------------
+
+
+async def feed(dp, bot: Bot, upd: dict[str, Any]) -> None:
+    """Проганяє update через Dispatcher, як це робить вебхук."""
+    from aiogram.types import Update
+
+    await dp.feed_update(bot, Update.model_validate(upd, context={"bot": bot}))
+
+
+async def press(dp, bot: Bot, user_id: int, cb: Any, message_id: int) -> None:
+    """Натискання inline-кнопки з CallbackData."""
+    await feed(dp, bot, make_callback_update(user_id, cb.pack(), message_id=message_id))
+
+
+def make_worker(sessionmaker, bot: Bot, ai: Any):
+    from app.config import get_settings
+    from app.worker import Worker
+
+    s = get_settings().model_copy(update={"job_retry_delays_s": [0, 0]})
+    return Worker(sessionmaker, bot, ai, s)
+
+
+async def run_worker(sessionmaker, bot: Bot, ai: Any) -> None:
+    """Один прохід worker: бере всі доступні задачі й чекає їх завершення."""
+    w = make_worker(sessionmaker, bot, ai)
+    await w.tick()
+    for t in list(w.tasks):
+        await t

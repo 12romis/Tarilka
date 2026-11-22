@@ -4,17 +4,10 @@ from sqlalchemy import select
 
 from app import texts
 from app.ai.client import AIError
-from app.config import get_settings
 from app.db.models import Dish, ImportJob, JobKind, JobStatus
 from app.services.jobs import claim, enqueue
 from app.services.members import add_member
-from app.worker import Worker
-from tests.conftest import FakeAI, dish_json
-
-
-def make_worker(sessionmaker, fake_bot, ai) -> Worker:
-    s = get_settings().model_copy(update={"job_retry_delays_s": [0, 0]})
-    return Worker(sessionmaker, fake_bot, ai, s)
+from tests.conftest import FakeAI, dish_json, make_worker
 
 
 async def _enqueue_text(session, member, text="борщ"):
@@ -106,13 +99,17 @@ async def test_voice_job(session, sessionmaker, fake_bot, monkeypatch) -> None:
     )
     w = make_worker(sessionmaker, fake_bot, ai)
 
-    async def fake_transcribe(_job):
-        return await ai.transcribe(None)
+    downloaded = []
 
-    monkeypatch.setattr(w, "_transcribe", fake_transcribe)
+    async def fake_download(file_id, destination):
+        downloaded.append((file_id, destination.name))
+
+    monkeypatch.setattr(fake_bot, "download", fake_download)
     await w.process(job.id)
     await session.refresh(job)
+    assert downloaded == [("F", "voice.ogg")]
     assert job.result["transcript"] == "вареники з вишнею"
+    assert job.result["source_type"] == "voice"
     assert ai.calls[0][1] == "вареники з вишнею"
     assert "🎙 Почув: «вареники з вишнею»" in fake_bot.session.edits()[-1].text
 

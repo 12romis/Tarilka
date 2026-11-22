@@ -8,16 +8,10 @@ from app import texts
 from app.bot import cards
 from app.bot.keyboards import DraftCb
 from app.bot.util import safe_edit
-from app.db.models import DishStatus, ImportJob, JobStatus, Member
-from app.services import dishes as dish_svc
+from app.db.models import ImportJob, JobStatus, Member
+from app.services import draft_fields as fields
 from app.services import drafts as dr
 from app.services.meta import load_meta
-
-
-def _next_pending(job: ImportJob, after: int) -> int | str:
-    pending = dr.pending_indexes(job)
-    later = [p for p in pending if p > after]
-    return (later or pending or ["summary"])[0]
 
 
 async def on_draft(
@@ -32,20 +26,7 @@ async def on_draft(
     chat_id, msg_id = cq.message.chat.id, cq.message.message_id
 
     if a == "asis" and job.status == JobStatus.failed:
-        source = (job.payload or {}).get("text") or ""
-        dish = await dish_svc.create_from_draft(
-            session,
-            meta,
-            job.family_id,
-            {
-                "title": source.strip()[:100] or "Без назви",
-                "status": DishStatus.can_cook.value,
-                "cooks": [member.id],
-            },
-            created_by=member.id,
-        )
-        job.status, job.dish_id = JobStatus.done, dish.id
-        await session.commit()
+        dish = await dr.save_raw_text(session, meta, job, member)
         await safe_edit(
             bot, chat_id, msg_id, texts.SAVED_DISHES.format(n=1, titles=dish.title), None
         )
@@ -66,35 +47,30 @@ async def on_draft(
     match a:
         case "save":
             await dr.save_one(session, meta, job, i)
-            job.result["view"] = _next_pending(job, i)
-            dr.touch(job)
+            dr.set_view(job, dr.next_pending(job, i))
         case "all":
             await dr.save_all(session, meta, job)
         case "del":
             await dr.discard(session, job, None if i < 0 else i)
             if i >= 0:
-                job.result["view"] = _next_pending(job, i)
-                dr.touch(job)
+                dr.set_view(job, dr.next_pending(job, i))
         case "one":
-            job.result["view"] = _next_pending(job, -1)
-            dr.touch(job)
+            dr.set_view(job, dr.next_pending(job, -1))
         case "next":
-            job.result["view"] = _next_pending(job, i)
-            dr.touch(job)
+            dr.set_view(job, dr.next_pending(job, i))
         case "sum":
-            job.result["view"] = "summary"
-            dr.touch(job)
+            dr.set_view(job, dr.SUMMARY)
         case "card":
             card = cards.render_draft(meta, job, i)
         case "st":
-            dr.toggle_status(ds[i])
+            fields.toggle_status(ds[i])
             dr.touch(job)
             card = cards.render_draft(meta, job, i)
         case "cooks":
             card = cards.render_cooks_menu(meta, job, i)
         case "tc":
             if int(arg) in meta.member_by_id:
-                dr.toggle_cook(ds[i], int(arg))
+                fields.toggle_cook(ds[i], int(arg))
                 dr.touch(job)
             card = cards.render_cooks_menu(meta, job, i)
         case "tags":
@@ -104,7 +80,7 @@ async def on_draft(
         case "tt":
             kind, _, slug = arg.partition(".")
             if meta.tag(kind, slug):
-                dr.toggle_tag(ds[i], kind, slug)
+                fields.toggle_tag(ds[i], kind, slug)
                 dr.touch(job)
             card = cards.render_tag_toggles(meta, job, i, kind)
         case "ren":

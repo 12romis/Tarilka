@@ -4,7 +4,6 @@ import json
 from datetime import UTC, datetime, timedelta
 
 from aiogram.methods import SendDocument
-from aiogram.types import Update
 from sqlalchemy import select
 
 from app import texts
@@ -15,23 +14,15 @@ from app.db.models import CookLog, Dish, DishCook, DishStatus, ImportJob, JobSta
 from app.services import dishes as dish_svc
 from app.services.members import add_member
 from app.services.meta import load_meta
-from tests.conftest import FakeAI, dish_json, make_callback_update, make_message_update
-from tests.test_worker import make_worker
-
-
-async def feed(dp, bot, upd: dict) -> None:
-    await dp.feed_update(bot, Update.model_validate(upd, context={"bot": bot}))
-
-
-async def press(dp, bot, user_id: int, cb, message_id: int) -> None:
-    await feed(dp, bot, make_callback_update(user_id, cb.pack(), message_id=message_id))
-
-
-async def run_worker(sessionmaker, bot, ai) -> None:
-    w = make_worker(sessionmaker, bot, ai)
-    await w.tick()
-    for t in list(w.tasks):
-        await t
+from tests.conftest import (
+    FakeAI,
+    dish_json,
+    feed,
+    make_callback_update,
+    make_message_update,
+    press,
+    run_worker,
+)
 
 
 async def test_bulk_add_acceptance(sessionmaker, session, fake_bot) -> None:

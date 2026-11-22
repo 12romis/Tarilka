@@ -63,7 +63,8 @@ async def requeue_stale(session: AsyncSession, older_than: timedelta) -> int:
 
 
 async def complete(session: AsyncSession, job: ImportJob, result: dict[str, Any]) -> None:
-    job.status = JobStatus.draft_ready
+    """Чернетки готові; якщо страв не знайшлося — задачу одразу закрито."""
+    job.status = JobStatus.draft_ready if result.get("drafts") else JobStatus.done
     job.result = result
     job.error = None
     await session.commit()

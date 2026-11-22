@@ -20,22 +20,15 @@ from app.db.models import (
     SourceType,
     Tag,
 )
-from app.services.meta import FamilyMeta
-
-# поля чернетки → kind тегів у dish_tags
-DRAFT_TAG_FIELDS = {
-    "meal": "meal",
-    "course": "course",
-    "ingredient_tags": "ingredient",
-    "traits": "trait",
-}
+from app.services.draft_fields import Draft, tag_slugs
+from app.services.meta import KIND_ORDER, FamilyMeta
 
 
 async def create_from_draft(
     session: AsyncSession,
     meta: FamilyMeta,
     family_id: int,
-    draft: dict[str, Any],
+    draft: Draft,
     *,
     created_by: int | None,
     source_type: SourceType = SourceType.manual,
@@ -63,13 +56,14 @@ async def create_from_draft(
     )
     session.add(dish)
     await session.flush()
-    tag_ids: list[int] = [main.id] if main else []
-    for fld, kind in DRAFT_TAG_FIELDS.items():
-        for slug in draft.get(fld) or []:
-            if (t := meta.tag(kind, slug)) and t.id not in tag_ids:
-                tag_ids.append(t.id)
-    if (t := meta.tag("cuisine", draft.get("cuisine"))) and t.id not in tag_ids:
-        tag_ids.append(t.id)
+    tag_ids = list(
+        dict.fromkeys(
+            t.id
+            for kind in KIND_ORDER
+            for slug in tag_slugs(draft, kind.value)
+            if (t := meta.tag(kind.value, slug))
+        )
+    )
     session.add_all(DishTag(dish_id=dish.id, tag_id=tid) for tid in tag_ids)
     cooks = [c for c in dict.fromkeys(draft.get("cooks") or []) if c in meta.member_by_id]
     session.add_all(DishCook(dish_id=dish.id, member_id=c) for c in cooks)

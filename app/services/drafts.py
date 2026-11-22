@@ -1,10 +1,10 @@
 """Чернетки страв живуть в import_jobs.result, а не в FSM.
 
 result = {
-  "drafts": [{...поля DishDraft після clean_draft, "state": pending|saved|discarded,
+  "drafts": [{...поля чернетки (див. draft_fields), "state": pending|saved|discarded,
               "dish_id": int|None}],
-  "source_text": str, "transcript": str|None, "view": "summary"|int,
-  "rename": {"msg_id": int, "i": int}|None, "meta": {...}
+  "source_text": str, "source_type": SourceType, "transcript": str|None,
+  "view": "summary"|int, "rename": {"msg_id": int, "i": int}|None, "meta": {...}
 }
 """
 
@@ -14,23 +14,42 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.db.models import Dish, ImportJob, JobKind, JobStatus, SourceType
+from app.db.models import Dish, ImportJob, JobStatus, Member, SourceType
 from app.services import dishes as dish_svc
+from app.services.draft_fields import Draft, raw_text_draft
 from app.services.meta import FamilyMeta
 
 PENDING, SAVED, DISCARDED = "pending", "saved", "discarded"
+SUMMARY = "summary"
 
-SOURCE_BY_KIND = {JobKind.text: SourceType.manual, JobKind.voice: SourceType.voice}
+
+def new_result(
+    drafts: list[Draft],
+    *,
+    source_text: str,
+    source_type: SourceType,
+    transcript: str | None = None,
+    meta: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "drafts": [d | {"state": PENDING, "dish_id": None} for d in drafts],
+        "source_text": source_text,
+        "source_type": source_type.value,
+        "transcript": transcript,
+        "view": SUMMARY if len(drafts) > 1 else 0,
+        "rename": None,
+        "meta": meta or {},
+    }
 
 
-def drafts(job: ImportJob) -> list[dict[str, Any]]:
+def drafts(job: ImportJob) -> list[Draft]:
     return (job.result or {}).get("drafts", [])
 
 
 def touch(job: ImportJob) -> None:
     """JSONB змінено на місці — повідомити SQLAlchemy і закрити задачу, якщо все вирішено."""
     flag_modified(job, "result")
-    if job.result and drafts(job) and all(d["state"] != PENDING for d in drafts(job)):
+    if drafts(job) and not pending_indexes(job):
         job.status = JobStatus.done
 
 
@@ -38,49 +57,16 @@ def pending_indexes(job: ImportJob) -> list[int]:
     return [i for i, d in enumerate(drafts(job)) if d["state"] == PENDING]
 
 
-def toggle_cook(draft: dict[str, Any], member_id: int) -> None:
-    cooks = draft.setdefault("cooks", [])
-    if member_id in cooks:
-        cooks.remove(member_id)
-    else:
-        cooks.append(member_id)
+def next_pending(job: ImportJob, after: int) -> int | str:
+    """Наступна непідтверджена чернетка після `after` (по колу), або зведена картка."""
+    pending = pending_indexes(job)
+    later = [p for p in pending if p > after]
+    return (later or pending or [SUMMARY])[0]
 
 
-def toggle_status(draft: dict[str, Any]) -> None:
-    draft["status"] = "want_to_try" if draft.get("status") == "can_cook" else "can_cook"
-
-
-def selected_slugs(draft: dict[str, Any], kind: str) -> list[str]:
-    if kind == "ingredient":
-        main = draft.get("main_ingredient")
-        return ([main] if main else []) + list(draft.get("ingredient_tags") or [])
-    if kind == "cuisine":
-        return [draft["cuisine"]] if draft.get("cuisine") else []
-    return list(draft.get({"meal": "meal", "course": "course", "trait": "traits"}[kind]) or [])
-
-
-def toggle_tag(draft: dict[str, Any], kind: str, slug: str) -> None:
-    """Перемикає тег. Для продуктів перший обраний — основний (main_ingredient)."""
-    if kind == "ingredient":
-        main = draft.get("main_ingredient")
-        extra = list(draft.get("ingredient_tags") or [])
-        if slug == main:
-            main = extra.pop(0) if extra else None
-        elif slug in extra:
-            extra.remove(slug)
-        elif main is None:
-            main = slug
-        else:
-            extra.append(slug)
-        draft["main_ingredient"], draft["ingredient_tags"] = main, extra
-        return
-    if kind == "cuisine":
-        draft["cuisine"] = None if draft.get("cuisine") == slug else slug
-        return
-    key = {"meal": "meal", "course": "course", "trait": "traits"}[kind]
-    values = list(draft.get(key) or [])
-    values.remove(slug) if slug in values else values.append(slug)
-    draft[key] = values
+def set_view(job: ImportJob, view: int | str) -> None:
+    job.result["view"] = view
+    touch(job)
 
 
 async def save_one(
@@ -89,14 +75,15 @@ async def save_one(
     d = drafts(job)[i]
     if d["state"] != PENDING:
         return None
+    result = job.result or {}
     dish = await dish_svc.create_from_draft(
         session,
         meta,
         job.family_id,
         d,
         created_by=job.created_by,
-        source_type=SOURCE_BY_KIND.get(job.kind, SourceType.manual),
-        raw_import={"job_id": job.id, "source_text": (job.result or {}).get("source_text")},
+        source_type=SourceType(result.get("source_type", SourceType.manual)),
+        raw_import={"job_id": job.id, "source_text": result.get("source_text")},
         commit=False,
     )
     d["state"], d["dish_id"] = SAVED, dish.id
@@ -115,13 +102,28 @@ async def save_all(session: AsyncSession, meta: FamilyMeta, job: ImportJob) -> i
     return n
 
 
+async def save_raw_text(
+    session: AsyncSession, meta: FamilyMeta, job: ImportJob, member: Member
+) -> Dish:
+    """«Зберегти як є» для задачі, яку не вдалося розібрати."""
+    dish = await dish_svc.create_from_draft(
+        session,
+        meta,
+        job.family_id,
+        raw_text_draft((job.payload or {}).get("text") or "", member.id),
+        created_by=member.id,
+        commit=False,
+    )
+    job.status, job.dish_id = JobStatus.done, dish.id
+    await session.commit()
+    return dish
+
+
 async def discard(session: AsyncSession, job: ImportJob, i: int | None) -> None:
     for idx, d in enumerate(drafts(job)):
         if (i is None or idx == i) and d["state"] == PENDING:
             d["state"] = DISCARDED
     touch(job)
-    if not pending_indexes(job):
-        job.status = JobStatus.done
     await session.commit()
 
 

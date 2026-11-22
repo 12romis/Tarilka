@@ -1,4 +1,4 @@
-"""Worker: обробляє import_jobs (текст, голос), автозбереження чернеток через 48 год.
+"""Worker: обробляє import_jobs через імпортери з реєстру, автозберігає чернетки за 48 год.
 
 Запуск: python -m app.worker. Відповіді в чат надсилає напряму через Bot API.
 """
@@ -25,7 +25,8 @@ from app.bot.util import safe_edit
 from app.config import Settings, get_settings
 from app.db.models import ImportJob, JobKind, JobStatus, Member
 from app.db.session import dispose_engine, get_sessionmaker
-from app.importers.text import parse_text
+from app.importers.base import ImportContext, PermanentImportError
+from app.importers.registry import IMPORTERS
 from app.services import drafts as dr
 from app.services import jobs
 from app.services.meta import load_meta
@@ -33,16 +34,12 @@ from app.services.meta import load_meta
 log = logging.getLogger("tarilka.worker")
 
 
-class PermanentError(Exception):
-    """Помилка, яку немає сенсу повторювати; текст — людська причина."""
-
-
 def human_reason(exc: BaseException) -> str:
-    if isinstance(exc, PermanentError):
+    if isinstance(exc, PermanentImportError):
         return str(exc)
     if isinstance(exc, TimeoutError):
         return texts.REASON_TIMEOUT
-    if isinstance(exc, AIError) or type(exc).__module__.startswith("openai"):
+    if isinstance(exc, AIError):
         return texts.REASON_AI
     return texts.REASON_UNKNOWN
 
@@ -62,41 +59,23 @@ class Worker:
         self.sem = asyncio.Semaphore(settings.worker_concurrency)
         self.tasks: set[asyncio.Task[None]] = set()
 
-    # --- обробники за типом задачі -------------------------------------------------------
-
-    async def _handle(self, session: AsyncSession, job: ImportJob) -> dict[str, Any]:
-        meta = await load_meta(session, job.family_id)
-        transcript = None
-        if job.kind == JobKind.text:
-            source = job.payload["text"]
-        elif job.kind == JobKind.voice:
-            transcript, stt_meta = await self._transcribe(job)
-            if not transcript:
-                raise PermanentError(texts.REASON_VOICE)
-            source = transcript
-        else:
-            raise PermanentError(texts.REASON_UNKNOWN)
-        drafts, ai_meta = await parse_text(self.ai, meta, source, job.created_by)
-        result: dict[str, Any] = {
-            "drafts": drafts,
-            "source_text": source,
-            "transcript": transcript,
-            "view": "summary" if len(drafts) > 1 else 0,
-            "rename": None,
-            "meta": {"llm": ai_meta},
-        }
-        if transcript is not None:
-            result["meta"]["stt"] = stt_meta
-        return result
-
-    async def _transcribe(self, job: ImportJob) -> tuple[str, dict[str, Any]]:
+    async def _import(self, session: AsyncSession, job: ImportJob) -> dict[str, Any]:
+        importer = IMPORTERS.get(job.kind)
+        if importer is None:
+            raise PermanentImportError(texts.REASON_UNKNOWN)
         tmp = Path(tempfile.mkdtemp(prefix=f"imp-{job.id}-"))
         try:
-            path = tmp / "voice.ogg"
-            await self.bot.download(job.payload["file_id"], destination=path)
-            return await self.ai.transcribe(path)
+            ctx = ImportContext(self.ai, self.bot, await load_meta(session, job.family_id), tmp)
+            out = await importer.run(job, ctx)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+        return dr.new_result(
+            out.drafts,
+            source_text=out.source_text,
+            source_type=out.source_type,
+            transcript=out.transcript,
+            meta=out.meta,
+        )
 
     # --- життєвий цикл задачі ------------------------------------------------------------
 
@@ -107,7 +86,7 @@ class Worker:
                 return
             try:
                 result = await asyncio.wait_for(
-                    self._handle(session, job), timeout=self.settings.job_timeout_s
+                    self._import(session, job), timeout=self.settings.job_timeout_s
                 )
             except Exception as exc:
                 await session.rollback()
@@ -115,8 +94,6 @@ class Worker:
                 return
             await jobs.complete(session, job, result)
             if not result["drafts"]:
-                job.status = JobStatus.done
-                await session.commit()
                 await self._edit(job, texts.NO_DISHES, None)
                 return
             meta = await load_meta(session, job.family_id)
@@ -128,7 +105,7 @@ class Worker:
         job = await session.get(ImportJob, job_id)  # після rollback об'єкт перечитується
         assert job is not None
         log.warning("job %s: спроба %s — %r", job.id, job.attempts, exc)
-        if isinstance(exc, PermanentError):
+        if isinstance(exc, PermanentImportError):
             job.attempts = jobs.MAX_ATTEMPTS
         retry = await jobs.fail(session, job, repr(exc), self.settings.job_retry_delays_s)
         if retry:
@@ -140,7 +117,7 @@ class Worker:
             b.button(text=texts.BTN_SAVE_AS_IS, callback_data=DraftCb(job=job.id, i=-1, a="asis"))
             kb = b.as_markup()
         await self._edit(job, texts.PARSE_FAILED.format(reason=human_reason(exc)), kb)
-        if not isinstance(exc, PermanentError):
+        if not isinstance(exc, PermanentImportError):
             await self._notify_admins(session, job)
 
     async def _notify_admins(self, session: AsyncSession, job: ImportJob) -> None:
