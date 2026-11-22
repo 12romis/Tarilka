@@ -1,0 +1,9 @@
+.env
+secrets/
+.venv/
+.git/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+tests/
+webapp/node_modules/
