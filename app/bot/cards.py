@@ -83,7 +83,11 @@ def render_job(meta: FamilyMeta, job: ImportJob) -> Card:
 
 
 def final_text(job: ImportJob) -> str:
-    saved = [d["title"] for d in dr.drafts(job) if d["state"] == dr.SAVED]
+    saved = [
+        d["title"] + (texts.MERGED_MARK if d.get("merged") else "")
+        for d in dr.drafts(job)
+        if d["state"] == dr.SAVED
+    ]
     if not saved:
         return texts.DRAFT_DISCARDED
     return texts.SAVED_DISHES.format(n=len(saved), titles=", ".join(saved))
@@ -94,6 +98,8 @@ def render_summary(meta: FamilyMeta, job: ImportJob) -> Card:
     lines = []
     for n, d in enumerate(ds, 1):
         mark = {"saved": "✅ ", "discarded": "🗑 "}.get(d["state"], "")
+        if d["state"] == dr.PENDING and d.get("existing_id"):
+            mark = "♻️ "
         cooks = _cook_names(meta, d)
         extra = "  ·  ".join(
             (["👤 " + ", ".join(cooks)] if cooks else [])
@@ -103,6 +109,8 @@ def render_summary(meta: FamilyMeta, job: ImportJob) -> Card:
             f"{n}. {mark}{_title_emoji(meta, d)} {d['title']}" + (f" — {extra}" if extra else "")
         )
     text = _header(job) + texts.FOUND_N.format(n=len(ds)) + "\n\n" + "\n".join(lines)
+    if any(d["state"] == dr.PENDING and d.get("existing_id") for d in ds):
+        text += "\n\n" + texts.ALREADY_EXISTS_SUMMARY
     kb = InlineKeyboardBuilder()
     kb.button(text=texts.BTN_SAVE_ALL, callback_data=DraftCb(job=job.id, i=-1, a="all"))
     kb.button(text=texts.BTN_ONE_BY_ONE, callback_data=DraftCb(job=job.id, i=-1, a="one"))
@@ -118,6 +126,8 @@ def render_draft(meta: FamilyMeta, job: ImportJob, i: int) -> Card:
     if len(ds) > 1:
         head += texts.DISH_N_OF.format(n=i + 1, total=len(ds)) + "\n"
     text = head + draft_text(meta, d)
+    if d.get("existing_id"):
+        text += "\n\n" + texts.ALREADY_EXISTS
     if d.get("note"):
         text += "\n\n" + d["note"]
     cb = lambda a, arg="": DraftCb(job=job.id, i=i, a=a, arg=arg)  # noqa: E731

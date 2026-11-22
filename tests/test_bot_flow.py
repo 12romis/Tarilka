@@ -4,7 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 from aiogram.methods import SendDocument
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app import texts
 from app.bot.handlers import what
@@ -227,3 +227,59 @@ async def test_failed_job_save_as_is(sessionmaker, session, fake_bot) -> None:
     await press(dp, fake_bot, 10, DraftCb(job=job.id, i=-1, a="asis"), 1)
     dish = await session.scalar(select(Dish))
     assert dish.title == "бабусині пиріжки"
+
+
+async def test_repeat_dishes_merge_instead_of_duplicates(sessionmaker, session, fake_bot) -> None:
+    """Регресія: повторне «Олів'є, деруни, борщ» створювало дублі, і /what показував
+    дубль щойно звареного борщу як «ще не готували»."""
+    igor = await add_member(session, "Ігор", tg_user_id=10, is_admin=True)
+    zirka = await add_member(session, "Зірка", tg_user_id=20)
+    dp = build_dispatcher(sessionmaker, [])
+    first = [dish_json(t, cooks=[zirka.id]) for t in ("Борщ", "Деруни", "Олів'є")]
+    await feed(dp, fake_bot, make_message_update(10, "борщ, деруни, олів'є — вміє Зірка"))
+    await run_worker(sessionmaker, fake_bot, FakeAI([{"dishes": first}]))
+    job1 = await session.scalar(select(ImportJob).order_by(ImportJob.id))
+    await press(dp, fake_bot, 10, DraftCb(job=job1.id, i=-1, a="all"), 1)
+    borsch = await session.scalar(select(Dish).where(Dish.title == "Борщ"))
+    await press(dp, fake_bot, 10, CookCb(dish=borsch.id), 1)
+
+    # друге повідомлення з тими самими стравами (інший апостроф і регістр)
+    second = [
+        dish_json("олів’є", cooks=[igor.id], course=["salad"]),
+        dish_json("Деруни", cooks=[zirka.id], status="want_to_try"),
+        dish_json("БОРЩ", cooks=[zirka.id]),
+    ]
+    await feed(dp, fake_bot, make_message_update(10, "Олів'є деруни та борщ"))
+    await run_worker(sessionmaker, fake_bot, FakeAI([{"dishes": second}]))
+    card = fake_bot.session.edits()[-1].text
+    assert card.count("♻️") == 4  # три позначки + пояснення
+    job2 = await session.scalar(select(ImportJob).order_by(ImportJob.id.desc()))
+    await press(dp, fake_bot, 10, DraftCb(job=job2.id, i=-1, a="all"), 2)
+
+    assert await session.scalar(select(func.count()).select_from(Dish)) == 3
+    assert fake_bot.session.edits()[-1].text.count(texts.MERGED_MARK) == 3
+    olivie = await session.scalar(select(Dish).where(Dish.title == "Олів'є"))
+    olivie_cooks = set(
+        await session.scalars(select(DishCook.member_id).where(DishCook.dish_id == olivie.id))
+    )
+    assert olivie_cooks == {zirka.id, igor.id}  # кухар доповнився
+    deruny = await session.scalar(select(Dish).where(Dish.title == "Деруни"))
+    assert deruny.status == DishStatus.can_cook  # «хочемо спробувати» не понижує статус
+    for _ in range(5):
+        await feed(dp, fake_bot, make_message_update(10, "/what"))
+        assert "Борщ" not in fake_bot.session.sent()[-1].text
+
+
+async def test_merge_upgrades_want_to_try(session) -> None:
+    meta = await load_meta(session, 1)
+    dish = await dish_svc.create_from_draft(
+        session, meta, 1, {"title": "Рамен", "status": "want_to_try"}, created_by=None
+    )
+    await dish_svc.merge_draft(
+        session, meta, dish, {"title": "рамен", "status": "can_cook", "cook_time_min": 40}
+    )
+    await session.commit()
+    assert dish.status == DishStatus.can_cook and dish.cook_time_min == 40
+    assert dish_svc.normalize_title("  Олів’Є  салат ") == "олів'є салат"
+    assert (await dish_svc.find_by_title(session, 1, "РАМЕН")).id == dish.id
+    assert await dish_svc.find_by_title(session, 1, "Рамен з куркою") is None

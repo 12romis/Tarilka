@@ -2,7 +2,8 @@
 
 result = {
   "drafts": [{...поля чернетки (див. draft_fields), "state": pending|saved|discarded,
-              "dish_id": int|None}],
+              "dish_id": int|None, "existing_id": int|None — така назва вже є в каталозі,
+              "merged": bool — збереження доповнило наявну страву}],
   "source_text": str, "source_type": SourceType, "transcript": str|None,
   "view": "summary"|int, "rename": {"msg_id": int, "i": int}|None, "meta": {...}
 }
@@ -42,6 +43,15 @@ def new_result(
     }
 
 
+async def mark_existing(session: AsyncSession, job: ImportJob) -> None:
+    """Позначає чернетки, назва яких уже є в каталозі (для попередження на картці)."""
+    for d in drafts(job):
+        if d["state"] == PENDING:
+            dish = await dish_svc.find_by_title(session, job.family_id, d["title"])
+            d["existing_id"] = dish.id if dish else None
+    touch(job)
+
+
 def drafts(job: ImportJob) -> list[Draft]:
     return (job.result or {}).get("drafts", [])
 
@@ -76,6 +86,14 @@ async def save_one(
     if d["state"] != PENDING:
         return None
     result = job.result or {}
+    existing = await dish_svc.find_by_title(session, job.family_id, d["title"])
+    if existing is not None:
+        await dish_svc.merge_draft(session, meta, existing, d)
+        d["state"], d["dish_id"], d["merged"] = SAVED, existing.id, True
+        touch(job)
+        if commit:
+            await session.commit()
+        return existing
     dish = await dish_svc.create_from_draft(
         session,
         meta,

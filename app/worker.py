@@ -92,7 +92,9 @@ class Worker:
                 await session.rollback()
                 await self._on_error(session, job_id, exc)
                 return
-            await jobs.complete(session, job, result)
+            job.result = result
+            await dr.mark_existing(session, job)
+            await jobs.complete(session, job, job.result)
             if not result["drafts"]:
                 await self._edit(job, texts.NO_DISHES, None)
                 return

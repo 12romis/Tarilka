@@ -72,6 +72,77 @@ async def create_from_draft(
     return dish
 
 
+# Різні апострофи й лапки в назвах вважаємо однаковими: «Олів’є» = «Олів'є».
+_APOSTROPHES = str.maketrans({"’": "'", "ʼ": "'", "`": "'", "´": "'"})
+
+
+def normalize_title(title: str) -> str:
+    return " ".join(title.translate(_APOSTROPHES).lower().split())
+
+
+async def find_by_title(session: AsyncSession, family_id: int, title: str) -> Dish | None:
+    """Наявна (не архівна) страва з тією самою назвою — без урахування регістру й пробілів."""
+    key = normalize_title(title)
+    if not key:
+        return None
+    # Сім'я — це сотні страв, тож порівняння в Python простіше за функціональний індекс.
+    for dish in await session.scalars(
+        select(Dish)
+        .where(Dish.family_id == family_id, Dish.status != DishStatus.archived)
+        .order_by(Dish.id)
+    ):
+        if normalize_title(dish.title) == key:
+            return dish
+    return None
+
+
+async def merge_draft(session: AsyncSession, meta: FamilyMeta, dish: Dish, draft: Draft) -> Dish:
+    """Доповнює наявну страву чернеткою: нічого не перезаписує, лише додає.
+
+    Нові кухарі й теги додаються, порожні поля заповнюються, «хочемо спробувати» стає
+    «вміємо», якщо чернетка каже «вміємо».
+    """
+    for fld in (
+        "description",
+        "cook_time_min",
+        "difficulty",
+        "servings",
+        "ingredients",
+        "steps",
+        "notes",
+        "source_url",
+        "source_author",
+    ):
+        if getattr(dish, fld) in (None, [], "") and draft.get(fld) not in (None, [], ""):
+            setattr(dish, fld, draft[fld])
+    if dish.main_ingredient_id is None and (
+        main := meta.tag("ingredient", draft.get("main_ingredient"))
+    ):
+        dish.main_ingredient_id = main.id
+    if dish.status == DishStatus.want_to_try and draft.get("status") == DishStatus.can_cook:
+        dish.status = DishStatus.can_cook
+    tag_ids = {
+        t.id
+        for kind in KIND_ORDER
+        for slug in tag_slugs(draft, kind.value)
+        if (t := meta.tag(kind.value, slug))
+    }
+    if tag_ids:
+        await session.execute(
+            insert(DishTag)
+            .values([{"dish_id": dish.id, "tag_id": t} for t in tag_ids])
+            .on_conflict_do_nothing()
+        )
+    cooks = [c for c in dict.fromkeys(draft.get("cooks") or []) if c in meta.member_by_id]
+    if cooks:
+        await session.execute(
+            insert(DishCook)
+            .values([{"dish_id": dish.id, "member_id": c} for c in cooks])
+            .on_conflict_do_nothing()
+        )
+    return dish
+
+
 async def mark_cooked(
     session: AsyncSession, dish: Dish, member: Member | None, note: str | None = None
 ) -> Dish:

@@ -51,7 +51,7 @@ async def on_rename_reply(
     title = message.text.strip()[:200]
     dr.drafts(job)[i]["title"] = title
     job.result["rename"] = None
-    dr.touch(job)
+    await dr.mark_existing(session, job)
     await session.commit()
     meta = await load_meta(session, job.family_id)
     text, markup = render_job(meta, job)
