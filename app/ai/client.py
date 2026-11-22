@@ -1,0 +1,89 @@
+"""Єдиний вхід до AI: structured output, розпізнавання мовлення, vision.
+
+Провайдер обирається через LLM_PROVIDER (поки лише openai). Кожен виклик повертає meta
+(модель, токени, час) — worker зберігає її в import_jobs.result.meta.
+"""
+
+import base64
+import time
+from pathlib import Path
+from typing import Any, Protocol, TypeVar
+
+from pydantic import BaseModel
+
+from app.config import Settings
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class AIError(Exception):
+    """Помилка AI-провайдера, придатна для показу людині (без технічних деталей)."""
+
+
+class AIClient(Protocol):
+    async def structured(
+        self, system: str, user: str, schema: type[T], images: list[bytes] | None = None
+    ) -> tuple[T, dict[str, Any]]: ...
+
+    async def transcribe(self, audio_path: Path) -> tuple[str, dict[str, Any]]: ...
+
+
+class OpenAIClient:
+    def __init__(self, settings: Settings) -> None:
+        from openai import AsyncOpenAI
+
+        self._client = AsyncOpenAI(api_key=settings.llm_api_key, timeout=90, max_retries=1)
+        self.model = settings.llm_model
+        self.stt_model = settings.stt_model
+
+    async def structured(
+        self, system: str, user: str, schema: type[T], images: list[bytes] | None = None
+    ) -> tuple[T, dict[str, Any]]:
+        content: list[dict[str, Any]] = [{"type": "text", "text": user}]
+        for img in images or []:
+            b64 = base64.b64encode(img).decode()
+            content.append(
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+            )
+        started = time.monotonic()
+        resp = await self._client.chat.completions.parse(
+            model=self.model,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": content},
+            ],
+            response_format=schema,
+        )
+        msg = resp.choices[0].message
+        if msg.parsed is None:
+            raise AIError(msg.refusal or "модель не повернула відповідь")
+        usage = resp.usage
+        return msg.parsed, {
+            "model": resp.model,
+            "prompt_tokens": usage.prompt_tokens if usage else None,
+            "completion_tokens": usage.completion_tokens if usage else None,
+            "seconds": round(time.monotonic() - started, 2),
+        }
+
+    async def vision(
+        self, system: str, user: str, schema: type[T], images: list[bytes]
+    ) -> tuple[T, dict[str, Any]]:
+        return await self.structured(system, user, schema, images)
+
+    async def transcribe(self, audio_path: Path) -> tuple[str, dict[str, Any]]:
+        started = time.monotonic()
+        with audio_path.open("rb") as f:
+            resp = await self._client.audio.transcriptions.create(
+                model=self.stt_model, file=f, language="uk"
+            )
+        return resp.text.strip(), {
+            "model": self.stt_model,
+            "seconds": round(time.monotonic() - started, 2),
+        }
+
+
+def build_ai_client(settings: Settings) -> AIClient:
+    if not settings.llm_api_key:
+        raise RuntimeError("LLM_API_KEY не задано")
+    return OpenAIClient(settings)

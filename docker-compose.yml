@@ -1,6 +1,5 @@
 # Працює в зовнішній Docker-мережі infra (там живуть postgres і Caddy з /opt/n8n).
 # Порти на хост не публікуються: Caddy проксує tarilka.romis.cloud -> tarilka-app:8000.
-# worker (черга import_jobs) додається на етапі 2.
 services:
   app:
     build: .
@@ -17,6 +16,19 @@ services:
     networks:
       infra:
         aliases: [tarilka-app]
+
+  worker:
+    image: tarilka:local
+    command: ["python", "-m", "app.worker"]
+    env_file: .env
+    volumes:
+      - media:/data/media
+      - ./secrets:/secrets:ro
+    depends_on:
+      app:
+        condition: service_healthy  # міграції виконує app
+    restart: unless-stopped
+    networks: [infra]
 
 volumes:
   media:

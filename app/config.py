@@ -23,7 +23,28 @@ class Settings(BaseSettings):
     dev_auth_member_id: int | None = None
     init_data_max_age_s: int = 24 * 3600
 
-    @field_validator("admin_tg_ids", mode="before")
+    # AI (лише на етапі вводу)
+    llm_provider: Literal["openai"] = "openai"
+    llm_api_key: str = ""
+    llm_model: str = "gpt-4.1-mini"
+    stt_model: str = "gpt-4o-mini-transcribe"
+
+    # Worker
+    worker_concurrency: int = 2
+    worker_poll_s: float = 2.0
+    job_timeout_s: int = 300
+    job_retry_delays_s: Annotated[list[int], NoDecode] = [30, 120]
+    draft_autosave_hours: int = 48
+
+    # «Що приготувати?» — ваги алгоритму (див. services/suggest.py)
+    suggest_recent_days: int = 3
+    suggest_fresh_days: float = 14
+    suggest_fresh_min: float = 0.3
+    suggest_fresh_max: float = 3.0
+    suggest_never_cooked: float = 2.0
+    suggest_novelty_k: float = 0.7
+
+    @field_validator("admin_tg_ids", "job_retry_delays_s", mode="before")
     @classmethod
     def _split_ids(cls, v: object) -> object:
         if isinstance(v, str):

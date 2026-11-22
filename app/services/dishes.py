@@ -1,0 +1,195 @@
+"""Страви: створення з чернетки, «Готую!», оцінка, пошук, експорт. Спільне для бота й API."""
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import (
+    CookLog,
+    Dish,
+    DishCook,
+    DishImage,
+    DishStatus,
+    DishTag,
+    Family,
+    Member,
+    SourceType,
+    Tag,
+)
+from app.services.meta import FamilyMeta
+
+# поля чернетки → kind тегів у dish_tags
+DRAFT_TAG_FIELDS = {
+    "meal": "meal",
+    "course": "course",
+    "ingredient_tags": "ingredient",
+    "traits": "trait",
+}
+
+
+async def create_from_draft(
+    session: AsyncSession,
+    meta: FamilyMeta,
+    family_id: int,
+    draft: dict[str, Any],
+    *,
+    created_by: int | None,
+    source_type: SourceType = SourceType.manual,
+    raw_import: dict[str, Any] | None = None,
+    commit: bool = True,
+) -> Dish:
+    main = meta.tag("ingredient", draft.get("main_ingredient"))
+    dish = Dish(
+        family_id=family_id,
+        title=draft["title"],
+        description=draft.get("description"),
+        status=DishStatus(draft.get("status") or DishStatus.can_cook),
+        main_ingredient_id=main.id if main else None,
+        cook_time_min=draft.get("cook_time_min"),
+        difficulty=draft.get("difficulty"),
+        servings=draft.get("servings"),
+        ingredients=draft.get("ingredients"),
+        steps=draft.get("steps"),
+        notes=draft.get("notes"),
+        source_url=draft.get("source_url"),
+        source_type=source_type,
+        source_author=draft.get("source_author"),
+        raw_import=raw_import,
+        created_by=created_by,
+    )
+    session.add(dish)
+    await session.flush()
+    tag_ids: list[int] = [main.id] if main else []
+    for fld, kind in DRAFT_TAG_FIELDS.items():
+        for slug in draft.get(fld) or []:
+            if (t := meta.tag(kind, slug)) and t.id not in tag_ids:
+                tag_ids.append(t.id)
+    if (t := meta.tag("cuisine", draft.get("cuisine"))) and t.id not in tag_ids:
+        tag_ids.append(t.id)
+    session.add_all(DishTag(dish_id=dish.id, tag_id=tid) for tid in tag_ids)
+    cooks = [c for c in dict.fromkeys(draft.get("cooks") or []) if c in meta.member_by_id]
+    session.add_all(DishCook(dish_id=dish.id, member_id=c) for c in cooks)
+    if commit:
+        await session.commit()
+    return dish
+
+
+async def mark_cooked(
+    session: AsyncSession, dish: Dish, member: Member | None, note: str | None = None
+) -> Dish:
+    """Запис у cook_log; want_to_try → can_cook; автор стає тим, хто вміє."""
+    now = datetime.now(UTC)
+    session.add(
+        CookLog(dish_id=dish.id, member_id=member.id if member else None, cooked_at=now, note=note)
+    )
+    dish.last_cooked_at = now
+    dish.cooked_count = (dish.cooked_count or 0) + 1
+    if dish.status == DishStatus.want_to_try:
+        dish.status = DishStatus.can_cook
+    if member:
+        await session.execute(
+            insert(DishCook).values(dish_id=dish.id, member_id=member.id).on_conflict_do_nothing()
+        )
+    await session.commit()
+    return dish
+
+
+async def set_rating(session: AsyncSession, dish: Dish, rating: int) -> None:
+    dish.rating = max(1, min(5, rating))
+    await session.commit()
+
+
+async def get_family_dish(session: AsyncSession, family_id: int, dish_id: int) -> Dish | None:
+    dish = await session.get(Dish, dish_id)
+    return dish if dish and dish.family_id == family_id else None
+
+
+async def search(session: AsyncSession, family_id: int, q: str, limit: int = 10) -> list[Dish]:
+    """Пошук за назвою: підрядок або trigram-схожість (pg_trgm), найближчі — першими."""
+    q = q.strip()
+    sim = func.similarity(Dish.title, q)
+    stmt = (
+        select(Dish)
+        .where(
+            Dish.family_id == family_id,
+            Dish.status != DishStatus.archived,
+            (Dish.title.ilike(f"%{q}%"))
+            | (sim > 0.2)
+            | (func.word_similarity(q, Dish.title) > 0.4),
+        )
+        .order_by(Dish.title.ilike(f"{q}%").desc(), sim.desc(), Dish.title)
+        .limit(limit)
+    )
+    return list(await session.scalars(stmt))
+
+
+async def count_active(session: AsyncSession, family_id: int) -> int:
+    return (
+        await session.scalar(
+            select(func.count())
+            .select_from(Dish)
+            .where(Dish.family_id == family_id, Dish.status != DishStatus.archived)
+        )
+        or 0
+    )
+
+
+@dataclass
+class DishInfo:
+    """Страва з іменами кухарів і тегами — для карток."""
+
+    dish: Dish
+    cooks: list[Member]
+    tags: list[Tag]
+
+
+async def load_info(session: AsyncSession, meta: FamilyMeta, dishes: list[Dish]) -> list[DishInfo]:
+    ids = [d.id for d in dishes]
+    if not ids:
+        return []
+    cooks: dict[int, list[Member]] = {i: [] for i in ids}
+    for dish_id, member_id in await session.execute(
+        select(DishCook.dish_id, DishCook.member_id).where(DishCook.dish_id.in_(ids))
+    ):
+        if m := meta.member_by_id.get(member_id):
+            cooks[dish_id].append(m)
+    tags: dict[int, list[Tag]] = {i: [] for i in ids}
+    for dish_id, tag_id in await session.execute(
+        select(DishTag.dish_id, DishTag.tag_id).where(DishTag.dish_id.in_(ids))
+    ):
+        if t := meta.by_id.get(tag_id):
+            tags[dish_id].append(t)
+    return [DishInfo(d, cooks[d.id], tags[d.id]) for d in dishes]
+
+
+def _row(obj: Any) -> dict[str, Any]:
+    out = {}
+    for col in obj.__table__.columns:
+        v = getattr(obj, col.key)
+        out[col.key] = v.isoformat() if isinstance(v, datetime) else v
+    return out
+
+
+async def export_family(session: AsyncSession, family_id: int) -> dict[str, Any]:
+    """Уся база сім'ї в JSON — простий власний бекап (/export)."""
+    dish_ids = select(Dish.id).where(Dish.family_id == family_id)
+    out: dict[str, Any] = {
+        "exported_at": datetime.now(UTC).isoformat(),
+        "family": _row(await session.get(Family, family_id)),
+    }
+    queries = {
+        "members": select(Member).where(Member.family_id == family_id),
+        "tags": select(Tag).where(Tag.family_id == family_id),
+        "dishes": select(Dish).where(Dish.family_id == family_id),
+        "dish_cooks": select(DishCook).where(DishCook.dish_id.in_(dish_ids)),
+        "dish_tags": select(DishTag).where(DishTag.dish_id.in_(dish_ids)),
+        "dish_images": select(DishImage).where(DishImage.dish_id.in_(dish_ids)),
+        "cook_log": select(CookLog).where(CookLog.dish_id.in_(dish_ids)),
+    }
+    for key, stmt in queries.items():
+        out[key] = [_row(o) for o in await session.scalars(stmt)]
+    return out

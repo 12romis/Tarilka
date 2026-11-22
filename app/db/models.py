@@ -228,6 +228,8 @@ class ImportJob(Base):
         _enum(JobStatus, "job_status"), server_default=JobStatus.queued.value
     )
     attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    # Повтор після помилки відкладається: worker бере лише задачі з run_after <= now().
+    run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
     error: Mapped[str | None] = mapped_column(Text)
     result: Mapped[dict | None] = mapped_column(JSONB)
     dish_id: Mapped[int | None] = mapped_column(ForeignKey("dishes.id", ondelete="SET NULL"))

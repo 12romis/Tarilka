@@ -4,7 +4,7 @@ from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import texts
-from app.bot.handlers import common
+from app.bot.handlers import add, admin, common, drafts, what
 from app.bot.middlewares import AccessMiddleware
 from app.config import Settings
 
@@ -22,7 +22,9 @@ def build_dispatcher(
     access = AccessMiddleware(sessionmaker, admin_ids)
     dp.message.outer_middleware(access)
     dp.callback_query.outer_middleware(access)
-    dp.include_router(common.build_router())
+    # Порядок важливий: команди й кнопки — раніше за «будь-який текст» з add.
+    for module in (common, admin, what, drafts, add):
+        dp.include_router(module.build_router())
     return dp
 
 

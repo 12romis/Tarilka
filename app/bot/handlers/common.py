@@ -55,10 +55,6 @@ async def invite(
     )
 
 
-async def not_yet(message: Message) -> None:
-    await message.answer(texts.NOT_YET)
-
-
 def build_router() -> Router:
     """Новий Router на кожен Dispatcher (aiogram не дозволяє ділити один між кількома)."""
     router = Router(name="common")
@@ -67,5 +63,4 @@ def build_router() -> Router:
     )
     router.message.register(start, CommandStart())
     router.message.register(invite, Command("invite"))
-    router.message.register(not_yet, Command("what", "find", "cooked"))
     return router

@@ -136,8 +136,10 @@ Inline-кнопки картки: `✅ Зберегти` · `👤 Хто вмі�
 ```python
 class Importer(Protocol):
     name: str
+
     def can_handle(self, src: ImportSource) -> bool: ...
     async def extract(self, src: ImportSource) -> RawExtract | None: ...
+
 
 # RawExtract: title, text_blocks[] (опис, субтитри, транскрипт),
 #             structured (schema.org Recipe, якщо є), image_urls[], local_images[],
