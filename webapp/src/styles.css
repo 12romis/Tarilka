@@ -126,8 +126,13 @@ textarea.input { resize: vertical; }
 .filters__group { margin: 6px 0 10px; }
 
 .gallery { margin: -12px -16px 12px; }
-/* Фото цілком, без обрізання: кадри з TikTok/Reels вертикальні (9:16). */
-.gallery__main { width: 100%; max-height: 70vh; object-fit: contain; background: var(--bg2); }
+/* Завжди на всю ширину. Горизонтальні фото — цілком; вертикальні кадри TikTok/Reels (9:16)
+   обрізаються зверху й знизу до квадрата (не вище 60% екрана), центр трохи вище середини —
+   там зазвичай страва. */
+.gallery__main {
+  width: 100%; height: auto; max-height: min(100vw, 60vh);
+  object-fit: cover; object-position: 50% 40%; background: var(--bg2);
+}
 .gallery__thumbs { display: flex; gap: 6px; padding: 8px 16px 0; overflow-x: auto; }
 .thumb { border: 2px solid transparent; border-radius: 10px; padding: 0; background: none; flex: 0 0 64px; overflow: hidden; }
 .thumb img { width: 60px; height: 60px; object-fit: cover; }
