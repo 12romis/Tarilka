@@ -105,7 +105,8 @@ class Worker:
                     self._import(session, job), timeout=self.settings.job_timeout_s
                 )
             except DuplicateUrl as dup:
-                await self._on_duplicate(session, job, dup.dish_id)
+                await session.rollback()
+                await self._on_duplicate(session, job_id, dup.dish_id)
                 return
             except Exception as exc:
                 await session.rollback()
@@ -151,9 +152,9 @@ class Worker:
             except Exception:
                 log.info("job %s: не вдалося видалити «⏳» повідомлення", job.id)
 
-    async def _on_duplicate(self, session: AsyncSession, job: ImportJob, dish_id: int) -> None:
-        await session.rollback()
-        job = await session.get(ImportJob, job.id)
+    async def _on_duplicate(self, session: AsyncSession, job_id: int, dish_id: int) -> None:
+        # Після rollback ORM-об'єкти протухли: беремо задачу за id, а не з атрибута об'єкта.
+        job = await session.get(ImportJob, job_id)
         assert job is not None
         job.status, job.dish_id = JobStatus.done, dish_id
         await session.commit()
@@ -231,6 +232,14 @@ class Worker:
     async def _run_one(self, job_id: int) -> None:
         try:
             await self.process(job_id)
+        except Exception as exc:
+            # Збій уже в обробці помилки — не лишаємо задачу назавжди в «running».
+            log.exception("job %s: непередбачений збій", job_id)
+            try:
+                async with self.sessionmaker() as session:
+                    await self._on_error(session, job_id, exc)
+            except Exception:
+                log.exception("job %s: не вдалося зафіксувати збій", job_id)
         finally:
             self.sem.release()
 
@@ -250,20 +259,26 @@ class Worker:
             started += 1
         return started
 
-    async def run(self) -> None:
+    async def requeue_stale(self) -> int:
+        """Задачі, що зависли в running довше за 2× таймаут, повертаються в чергу."""
         async with self.sessionmaker() as session:
             n = await jobs.requeue_stale(
                 session, timedelta(seconds=self.settings.job_timeout_s * 2)
             )
-            if n:
-                log.info("повернуто в чергу завислих задач: %s", n)
-        last_autosave = 0.0
+        if n:
+            log.info("повернуто в чергу завислих задач: %s", n)
+        return n
+
+    async def run(self) -> None:
+        last_housekeeping = 0.0
         loop = asyncio.get_running_loop()
         while True:
             try:
                 await self.tick()
-                if loop.time() - last_autosave > 60:
-                    last_autosave = loop.time()
+                # Раз на хвилину: автозбереження чернеток і повернення завислих задач.
+                if loop.time() - last_housekeeping > 60:
+                    last_housekeeping = loop.time()
+                    await self.requeue_stale()
                     if saved := await self.autosave():
                         log.info("автозбережено чернеток: %s", saved)
             except Exception:

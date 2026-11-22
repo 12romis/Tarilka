@@ -31,6 +31,7 @@ from tests.conftest import (
     dish_json,
     feed,
     make_message_update,
+    make_worker,
     press,
     run_worker,
 )
@@ -333,3 +334,75 @@ async def test_group_link_is_processed(sessionmaker, session, fake_bot) -> None:
     await feed(dp, fake_bot, make_message_update(10, f"глянь {RECIPE_URL}", chat_type="group"))
     job = await session.scalar(select(ImportJob))
     assert job is not None and job.payload == {"url": RECIPE_URL, "text": "глянь"}
+
+
+async def test_repeat_short_link_shows_existing_dish(sessionmaker, session, fake_bot, no_ytdlp):
+    """Регресія: коротке vt.tiktok.com уже імпортованого відео — бот не впізнає його одразу
+    (в базі збережено розгорнуте посилання), а worker падав і лишав «⏳ Імпортую…» назавжди."""
+    await add_member(session, "Ігор", tg_user_id=10)
+    meta = await load_meta(session, 1)
+    dish = await dish_svc.create_from_draft(
+        session, meta, 1, {"title": "Бургер", "source_url": TT_FULL}, created_by=None
+    )
+    dp = build_dispatcher(sessionmaker, [])
+    await _send(dp, fake_bot, TT_SHORT)
+    job = await session.scalar(select(ImportJob))
+    assert job is not None  # коротке посилання бот передає worker
+    ai = FakeAI([])
+    await run_worker(sessionmaker, fake_bot, ai, http=mock_http())
+    await session.refresh(job)
+    assert job.status == JobStatus.done and job.dish_id == dish.id
+    assert ai.calls == []  # до LLM не дійшло
+    card = fake_bot.session.edits()[-1]
+    assert card.text.startswith(texts.ALREADY_HAVE_LINK) and "Бургер" in card.text
+
+
+async def test_crash_in_error_handling_does_not_leave_job_running(
+    sessionmaker, session, fake_bot, no_ytdlp, monkeypatch
+):
+    await add_member(session, "Ігор", tg_user_id=10)
+    dp = build_dispatcher(sessionmaker, [])
+    await _send(dp, fake_bot, TT_SHORT)
+    job = await session.scalar(select(ImportJob))
+    w = make_worker(sessionmaker, fake_bot, FakeAI([]), http=mock_http())
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("збій поза очікуваними гілками")
+
+    monkeypatch.setattr(w, "_import", boom)
+    calls = 0
+    real_on_error = w._on_error
+
+    async def flaky_on_error(*a, **k):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("впала й обробка помилки")
+        return await real_on_error(*a, **k)
+
+    monkeypatch.setattr(w, "_on_error", flaky_on_error)
+    await w.tick()
+    for t in list(w.tasks):
+        await t
+    await session.refresh(job)
+    assert job.status != JobStatus.running  # повторна спроба запланована, задача не зависла
+    assert job.error and "впала й обробка" in job.error  # записано останню помилку
+
+
+async def test_stale_running_jobs_are_requeued(sessionmaker, session, fake_bot) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    await add_member(session, "Ігор", tg_user_id=10)
+    dp = build_dispatcher(sessionmaker, [])
+    await _send(dp, fake_bot, RECIPE_URL)
+    job = await session.scalar(select(ImportJob))
+    job.status = JobStatus.running
+    await session.commit()
+    await session.execute(
+        ImportJob.__table__.update().values(updated_at=datetime.now(UTC) - timedelta(hours=1))
+    )
+    await session.commit()
+    w = make_worker(sessionmaker, fake_bot, FakeAI([]))
+    assert await w.requeue_stale() == 1
+    await session.refresh(job)
+    assert job.status == JobStatus.queued
