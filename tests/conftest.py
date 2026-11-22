@@ -157,6 +157,15 @@ class FakeSession(BaseSession):
 
 
 @pytest.fixture
+def media_dir(tmp_path, monkeypatch):
+    """Тимчасова тека для фото; налаштування повертаються самі після тесту."""
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "media_dir", str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
 def fake_bot() -> Bot:
     return Bot(BOT_TOKEN, session=FakeSession())
 
@@ -226,13 +235,20 @@ class FakeAI:
         self.responses = list(responses or [])
         self.transcript = transcript
         self.calls: list[tuple[str, str]] = []
+        self.images: list[bytes] = []
 
     async def structured(self, system, user, schema, images=None):
         self.calls.append((system, user))
+        self.images += images or []
         resp = self.responses.pop(0)
         if isinstance(resp, BaseException):
             raise resp
-        return schema.model_validate(resp), {"model": "fake", "seconds": 0}
+        return schema.model_validate(resp), {
+            "model": "fake",
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "cost_usd": 0.001,
+        }
 
     async def transcribe(self, audio_path):
         return self.transcript, {"model": "fake-stt", "seconds": 0}

@@ -13,13 +13,14 @@ from app.db.models import ImportJob, SourceType
 from app.importers.base import ImportContext, ImportOutput
 from app.importers.link import attach_source, import_link, link_only_draft
 from app.importers.urls import find_urls, strip_urls
-from app.services.media import save_image
+from app.services.media import save_image, shrink_for_vision
 
 
 async def _vision(ctx: ImportContext, job: ImportJob, photo: bytes, caption: str):
     system = photo_system_prompt(ctx.meta.prompt_members(), ctx.meta.prompt_tags())
     user = f"Підпис користувача: {caption or '—'}"
-    parsed, meta = await ctx.ai.structured(system, user, PhotoParse, images=[photo])
+    small = await asyncio.to_thread(shrink_for_vision, photo, ctx.settings.vision_max_px)
+    parsed, meta = await ctx.ai.structured(system, user, PhotoParse, images=[small])
     # Фото готової страви — її приготував автор повідомлення; для рецепта кухаря не вгадуємо.
     default_cook = job.created_by if parsed.kind == "dish" else None
     drafts = [
@@ -63,7 +64,7 @@ class PhotoImporter:
                 drafts = [link_only_draft(raw.url, raw.source_type, raw.source_author)]
 
         if drafts:
-            user_img = save_image(photo, ctx.settings.media_dir, "upload")
+            user_img = await asyncio.to_thread(save_image, photo, ctx.settings.media_dir, "upload")
             drafts[0]["images"] = [user_img, *drafts[0].get("images", [])]
             if raw is not None:
                 attach_source(drafts[0], raw)

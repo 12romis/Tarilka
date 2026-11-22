@@ -11,6 +11,7 @@ from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
+from app.ai.pricing import DEFAULT_PRICES, cost_usd
 from app.config import Settings
 
 T = TypeVar("T", bound=BaseModel)
@@ -38,6 +39,7 @@ class OpenAIClient:
         self._client = AsyncOpenAI(api_key=settings.llm_api_key, timeout=90, max_retries=1)
         self.model = settings.llm_model
         self.stt_model = settings.stt_model
+        self.prices = {**DEFAULT_PRICES, **settings.ai_prices}
 
     async def structured(
         self, system: str, user: str, schema: type[T], images: list[bytes] | None = None
@@ -65,10 +67,17 @@ class OpenAIClient:
         if msg.parsed is None:
             raise AIError(msg.refusal or "модель не повернула відповідь")
         usage = resp.usage
+        prompt = usage.prompt_tokens if usage else None
+        completion = usage.completion_tokens if usage else None
+        details = usage.prompt_tokens_details if usage else None
+        # OpenAI сам кешує однаковий початок промпта від 1024 токенів — дешевше в ~4 рази.
+        cached = (details.cached_tokens or 0) if details else 0
         return msg.parsed, {
             "model": resp.model,
-            "prompt_tokens": usage.prompt_tokens if usage else None,
-            "completion_tokens": usage.completion_tokens if usage else None,
+            "prompt_tokens": prompt,
+            "cached_tokens": cached,
+            "completion_tokens": completion,
+            "cost_usd": cost_usd(resp.model, prompt, completion, cached, self.prices),
             "seconds": round(time.monotonic() - started, 2),
         }
 
@@ -86,8 +95,14 @@ class OpenAIClient:
                 )
         except self._sdk_errors as e:
             raise AIError(repr(e)) from e
+        usage = getattr(resp, "usage", None)
+        tokens_in = getattr(usage, "input_tokens", None)
+        tokens_out = getattr(usage, "output_tokens", None)
         return resp.text.strip(), {
             "model": self.stt_model,
+            "prompt_tokens": tokens_in,
+            "completion_tokens": tokens_out,
+            "cost_usd": cost_usd(self.stt_model, tokens_in, tokens_out, 0, self.prices),
             "seconds": round(time.monotonic() - started, 2),
         }
 

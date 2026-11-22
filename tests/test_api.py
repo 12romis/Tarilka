@@ -8,7 +8,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from PIL import Image
 
-from app.config import get_settings
 from app.main import create_app, mount_webapp
 from app.services import dishes as dish_svc
 from app.services.members import add_member
@@ -176,40 +175,36 @@ def png(color: str) -> bytes:
     return buf.getvalue()
 
 
-async def test_images(client, family, tmp_path) -> None:
-    settings = get_settings()
-    old, settings.media_dir = settings.media_dir, str(tmp_path)
-    try:
-        url = f"/api/dishes/{family['borsch'].id}/images"
-        r1 = await client.post(
-            url, headers=auth(10), files={"file": ("a.png", png("red"), "image/png")}
-        )
-        assert r1.status_code == 201, r1.text
-        r2 = await client.post(
-            url, headers=auth(10), files={"file": ("b.png", png("blue"), "image/png")}
-        )
-        imgs = r2.json()["images"]
-        assert [i["is_cover"] for i in imgs] == [True, False]
-        assert r2.json()["cover"]["id"] == imgs[0]["id"]
-        assert (tmp_path / imgs[0]["url"].removeprefix("/media/")).is_file()
+async def test_images(client, family, media_dir) -> None:
+    tmp_path = media_dir
+    url = f"/api/dishes/{family['borsch'].id}/images"
+    r1 = await client.post(
+        url, headers=auth(10), files={"file": ("a.png", png("red"), "image/png")}
+    )
+    assert r1.status_code == 201, r1.text
+    r2 = await client.post(
+        url, headers=auth(10), files={"file": ("b.png", png("blue"), "image/png")}
+    )
+    imgs = r2.json()["images"]
+    assert [i["is_cover"] for i in imgs] == [True, False]
+    assert r2.json()["cover"]["id"] == imgs[0]["id"]
+    assert (tmp_path / imgs[0]["url"].removeprefix("/media/")).is_file()
 
-        r = await client.patch(f"{url}/{imgs[1]['id']}", headers=auth(10), json={"is_cover": True})
-        assert r.json()["cover"]["id"] == imgs[1]["id"]
-        r = await client.delete(f"{url}/{imgs[1]['id']}", headers=auth(10))
-        left = r.json()["images"]
-        assert len(left) == 1 and left[0]["is_cover"]  # обкладинка перейшла на наступне
-        assert not (tmp_path / imgs[1]["url"].removeprefix("/media/")).exists()
+    r = await client.patch(f"{url}/{imgs[1]['id']}", headers=auth(10), json={"is_cover": True})
+    assert r.json()["cover"]["id"] == imgs[1]["id"]
+    r = await client.delete(f"{url}/{imgs[1]['id']}", headers=auth(10))
+    left = r.json()["images"]
+    assert len(left) == 1 and left[0]["is_cover"]  # обкладинка перейшла на наступне
+    assert not (tmp_path / imgs[1]["url"].removeprefix("/media/")).exists()
 
-        bad = await client.post(
-            url, headers=auth(10), files={"file": ("x.txt", b"hello", "text/plain")}
-        )
-        assert bad.status_code == 415
-        fake = await client.post(
-            url, headers=auth(10), files={"file": ("x.png", b"not png", "image/png")}
-        )
-        assert fake.status_code == 422
-    finally:
-        settings.media_dir = old
+    bad = await client.post(
+        url, headers=auth(10), files={"file": ("x.txt", b"hello", "text/plain")}
+    )
+    assert bad.status_code == 415
+    fake = await client.post(
+        url, headers=auth(10), files={"file": ("x.png", b"not png", "image/png")}
+    )
+    assert fake.status_code == 422
 
 
 async def test_suggest(client, family) -> None:

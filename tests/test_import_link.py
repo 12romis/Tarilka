@@ -126,6 +126,20 @@ def test_extract_article_text_fallback() -> None:
     assert raw.image_urls == ["https://journal.test/img/bilyi-borshch.jpg"]
 
 
+def test_tiktok_prefers_author_cover() -> None:
+    info = {
+        "thumbnail": "https://cdn.test/origin.jpg",
+        "thumbnails": [
+            {"id": "dynamicCover", "preference": -2, "url": "https://cdn.test/dynamic.webp"},
+            {"id": "cover", "preference": -1, "url": "https://cdn.test/cover.jpg"},
+            {"id": "originCover", "preference": -1, "url": "https://cdn.test/origin.jpg"},
+        ],
+    }
+    assert video.cover_urls(info) == ["https://cdn.test/cover.jpg", "https://cdn.test/origin.jpg"]
+    # Instagram/YouTube: лише thumbnail або thumbnails без id — порядок за preference
+    assert video.cover_urls({"thumbnail": "https://cdn.test/t.jpg"}) == ["https://cdn.test/t.jpg"]
+
+
 def test_author_handle() -> None:
     tiktok = {
         "uploader": "mil_alexx_pp",
@@ -271,9 +285,12 @@ async def test_photo_with_blocked_link(
     assert d["cooks"] == [igor.id]  # фото готової страви — приготував автор
     assert d["images"][0]["origin"] == "upload"
     assert fake_bot.session.last_card_text().startswith("🍰 Сирники")  # фото-картка
+    assert Image.open(io.BytesIO(ai.images[0])).size == (800, 600)  # ≤ 1024 — без змін
+    assert job.result["meta"]["cost_usd"] == 0.001
 
 
-async def test_discard_deletes_images(sessionmaker, session, fake_bot, tmp_path) -> None:
+async def test_discard_deletes_images(sessionmaker, session, fake_bot, media_dir) -> None:
+    tmp_path = media_dir
     await add_member(session, "Ігор", tg_user_id=10)
     dp = build_dispatcher(sessionmaker, [])
     await _send(dp, fake_bot, RECIPE_URL)
@@ -282,13 +299,7 @@ async def test_discard_deletes_images(sessionmaker, session, fake_bot, tmp_path)
     job = await session.scalar(select(ImportJob))
     path = tmp_path / job.result["drafts"][0]["images"][0]["path"]
     assert path.is_file()
-    from app.config import get_settings
-
-    get_settings().media_dir = str(tmp_path)
-    try:
-        await press(dp, fake_bot, 10, DraftCb(job=job.id, i=0, a="del"), job.tg_message_id)
-    finally:
-        get_settings().media_dir = "/nonexistent"
+    await press(dp, fake_bot, 10, DraftCb(job=job.id, i=0, a="del"), job.tg_message_id)
     assert not path.exists()
     await session.refresh(job)
     assert job.status == JobStatus.done

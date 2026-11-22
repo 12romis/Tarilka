@@ -1,7 +1,5 @@
 """Додавання страв одним повідомленням: текст або голосове → задача import_jobs."""
 
-from datetime import UTC, datetime
-
 from aiogram import Bot, F, Router
 from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.enums import ChatType
@@ -9,10 +7,10 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import texts
-from app.bot.cards import dish_line, render_job
+from app.bot.cards import render_job
 from app.bot.handlers.what import send_what
-from app.bot.keyboards import dish_buttons
 from app.bot.util import safe_edit
+from app.bot.views import existing_dish_message
 from app.db.models import JobKind, Member
 from app.importers.urls import clean_url, find_urls, strip_urls
 from app.services import dishes as dish_svc
@@ -115,7 +113,8 @@ async def enqueue_links(
     for url in urls[:MAX_LINKS]:
         existing = await dish_svc.find_by_url(session, member.family_id, clean_url(url))
         if existing is not None:
-            await send_existing(message, session, member, existing)
+            text, markup = await existing_dish_message(session, existing)
+            await message.answer(text, reply_markup=markup)
             continue
         reply = await message.answer(texts.IMPORTING)
         await enqueue(
@@ -127,15 +126,6 @@ async def enqueue_links(
             tg_chat_id=message.chat.id,
             tg_message_id=reply.message_id,
         )
-
-
-async def send_existing(message: Message, session: AsyncSession, member: Member, dish) -> None:
-    meta = await load_meta(session, member.family_id)
-    info = (await dish_svc.load_info(session, meta, [dish]))[0]
-    await message.answer(
-        texts.ALREADY_HAVE_LINK + "\n\n" + dish_line(info, datetime.now(UTC)),
-        reply_markup=dish_buttons([dish]).as_markup(),
-    )
 
 
 async def on_photo(message: Message, bot: Bot, session: AsyncSession, member: Member) -> None:

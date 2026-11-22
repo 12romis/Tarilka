@@ -10,7 +10,6 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import texts
-from app.bot.cards import dish_line
 from app.bot.keyboards import (
     CookCb,
     RateCb,
@@ -20,10 +19,10 @@ from app.bot.keyboards import (
     reset_keyboard,
     what_keyboard,
 )
+from app.bot.views import numbered_lines
 from app.config import get_settings
 from app.db.models import Member
 from app.services import dishes as dish_svc
-from app.services.meta import load_meta
 from app.services.suggest import Filters, default_meal, suggest
 
 EMPTY_DB_THRESHOLD = 10
@@ -56,13 +55,11 @@ async def build_what(
     now = datetime.now(UTC)
     f = Filters(meal=[] if meal == "any" else [meal], include_new=new, exclude_ids=exclude)
     dishes, total = await suggest(session, member.family_id, f, settings, now)
-    meta = await load_meta(session, member.family_id)
     label = dict(texts.WHAT_MEALS).get(meal, "") if meal != "any" else ""
     lines = [
         texts.WHAT_HEADER.format(meal=texts.WHAT_MEAL_SUFFIX.format(label=label) if label else "")
     ]
-    infos = await dish_svc.load_info(session, meta, dishes)
-    lines += [f"\n{n}. {dish_line(info, now)}" for n, info in enumerate(infos, 1)]
+    lines += await numbered_lines(session, member.family_id, dishes)
     if not dishes:
         lines.append("\n" + texts.WHAT_NONE)
     elif total < 3:
@@ -143,11 +140,8 @@ async def _search_reply(
     if not found:
         await message.answer(texts.FIND_NOTHING.format(q=q))
         return
-    now = datetime.now(UTC)
-    meta = await load_meta(session, member.family_id)
-    infos = await dish_svc.load_info(session, meta, found)
     head = texts.COOKED_PICK if cooked else texts.FIND_RESULTS.format(q=q)
-    body = "\n".join(f"\n{n}. {dish_line(i, now)}" for n, i in enumerate(infos, 1))
+    body = "\n".join(await numbered_lines(session, member.family_id, found))
     kb = dish_buttons(found, texts.BTN_COOKED if cooked else texts.BTN_COOK)
     await message.answer(head + "\n" + body, reply_markup=kb.as_markup())
 

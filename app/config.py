@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "gpt-4.1-mini"
     stt_model: str = "gpt-4o-mini-transcribe"
+    # Перевизначення цін (USD за 1M токенів), JSON у .env:
+    # AI_PRICES={"gpt-4.1-mini": {"in": 0.4, "cached": 0.1, "out": 1.6}}
+    ai_prices: dict[str, dict[str, float]] = {}
+    vision_max_px: int = 1024
 
     # Імпорт за посиланням
     ytdlp_cookies_file: str = "/secrets/cookies.txt"  # Netscape-формат; без файлу теж працює

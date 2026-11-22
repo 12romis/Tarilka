@@ -7,6 +7,7 @@
 Фото з повідомлення (photo-задача) підставляє PhotoImporter, якщо посилання «мовчить».
 """
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -25,6 +26,8 @@ from app.services.media import download_image, save_image
 
 log = logging.getLogger("tarilka.import.link")
 
+STEPS_PROVIDED = "Кроки приготування вже є окремо — поверни steps порожнім масивом."
+
 PLATFORM_NAMES = {
     SourceType.tiktok: "TikTok",
     SourceType.instagram: "Instagram",
@@ -40,9 +43,12 @@ def link_user_prompt(raw: RawExtract, user_text: str) -> str:
     if raw.title:
         parts.append(f"Назва: {raw.title}")
     if raw.structured:
-        parts.append(
-            "Структурований рецепт (JSON):\n" + json.dumps(raw.structured, ensure_ascii=False)
-        )
+        # Кроки зі сторінки підставляємо дослівно після LLM — тут їх не передаємо й не просимо,
+        # це до половини вихідних токенів і кілька секунд очікування.
+        recipe = {k: v for k, v in raw.structured.items() if k != "steps"}
+        parts.append("Структурований рецепт (JSON):\n" + json.dumps(recipe, ensure_ascii=False))
+        if raw.structured.get("steps"):
+            parts.append(STEPS_PROVIDED)
     for block in raw.text_blocks:
         parts.append("Текст:\n" + block)
     return "\n\n".join(parts)
@@ -76,7 +82,9 @@ async def save_remote_images(ctx: ImportContext, urls: list[str], limit: int = 1
         data = await download_image(ctx.http, url, ctx.settings.max_image_mb)
         if data:
             try:
-                images.append(save_image(data, ctx.settings.media_dir, "og_image"))
+                images.append(
+                    await asyncio.to_thread(save_image, data, ctx.settings.media_dir, "og_image")
+                )
             except ValueError:
                 continue
     return images

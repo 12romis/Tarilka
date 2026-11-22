@@ -7,7 +7,7 @@ import asyncio
 import logging
 import shutil
 import tempfile
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import texts
 from app.ai.client import AIClient, AIError, build_ai_client
-from app.bot.cards import dish_line, render_job
-from app.bot.keyboards import DraftCb, dish_buttons
+from app.ai.pricing import total_cost
+from app.bot.cards import render_job
+from app.bot.keyboards import DraftCb
 from app.bot.router import build_bot
 from app.bot.util import caption, safe_edit
+from app.bot.views import existing_dish_message
 from app.config import Settings, get_settings
 from app.db.models import ImportJob, JobKind, JobStatus, Member
 from app.db.session import dispose_engine, get_sessionmaker
@@ -82,6 +84,7 @@ class Worker:
             out = await importer.run(job, ctx)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+        out.meta["cost_usd"] = total_cost(out.meta)
         return dr.new_result(
             out.drafts,
             source_text=out.source_text,
@@ -157,10 +160,7 @@ class Worker:
         dish = await dish_svc.get_family_dish(session, job.family_id, dish_id)
         if dish is None:
             return
-        meta = await load_meta(session, job.family_id)
-        info = (await dish_svc.load_info(session, meta, [dish]))[0]
-        text = texts.ALREADY_HAVE_LINK + "\n\n" + dish_line(info, datetime.now(UTC))
-        await self._edit(job, text, dish_buttons([dish]).as_markup())
+        await self._edit(job, *await existing_dish_message(session, dish))
 
     async def _on_error(self, session: AsyncSession, job_id: int, exc: BaseException) -> None:
         job = await session.get(ImportJob, job_id)  # після rollback об'єкт перечитується

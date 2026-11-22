@@ -47,6 +47,18 @@ def save_image(data: bytes, media_dir: str, origin: str) -> dict[str, Any]:
     }
 
 
+def shrink_for_vision(data: bytes, max_px: int) -> bytes:
+    """JPEG не більше max_px по довшій стороні: вартість vision росте з розміром зображення,
+    а текст рецепта при 1024 px ще добре читається."""
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(data))).convert("RGB")
+    if max(img.size) <= max_px and data[:3] == b"\xff\xd8\xff":
+        return data  # уже малий JPEG — не перекодовуємо
+    img.thumbnail((max_px, max_px))
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=85)
+    return buf.getvalue()
+
+
 def jpeg_for_telegram(media_dir: str, rel_path: str) -> bytes:
     """Telegram надійніше показує JPEG як фото, ніж WebP."""
     buf = io.BytesIO()

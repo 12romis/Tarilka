@@ -58,10 +58,29 @@ def raw_from_info(url: str, st: SourceType, info: dict[str, Any]) -> RawExtract:
     raw = RawExtract(url=url, source_type=st, via="ytdlp", title=title or None)
     if description:
         raw.text_blocks.append(description)
-    if info.get("thumbnail"):
-        raw.image_urls.append(info["thumbnail"])
+    raw.image_urls = cover_urls(info)
     raw.source_author = _handle(info)
     return raw
+
+
+# TikTok: «cover» — обкладинка, яку обрав автор; «originCover» — перший кадр (часто розмитий,
+# без страви), а саме його yt-dlp ставить у thumbnail. «dynamicCover» — анімація, не беремо.
+COVER_ORDER = ("cover", "originCover")
+SKIP_COVERS = {"dynamicCover"}
+
+
+def cover_urls(info: dict[str, Any]) -> list[str]:
+    """Кандидати в обкладинку від найкращого; save_remote_images бере перший робочий."""
+    thumbs = [t for t in info.get("thumbnails") or [] if t.get("url")]
+    rank = {tid: n for n, tid in enumerate(COVER_ORDER)}
+    ordered = sorted(
+        (t for t in thumbs if t.get("id") not in SKIP_COVERS),
+        key=lambda t: (rank.get(t.get("id"), len(COVER_ORDER)), -(t.get("preference") or 0)),
+    )
+    urls = [t["url"] for t in ordered]
+    if info.get("thumbnail") and info["thumbnail"] not in urls:
+        urls.append(info["thumbnail"])
+    return urls
 
 
 _HANDLE = re.compile(r"^@?[\w.]+$")
