@@ -1,6 +1,11 @@
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
+from aiogram.types import (
+    BotCommand,
+    BotCommandScopeAllPrivateChats,
+    MenuButtonWebApp,
+    WebAppInfo,
+)
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import texts
@@ -38,5 +43,11 @@ async def setup_telegram(bot: Bot, settings: Settings) -> None:
     )
     commands = [BotCommand(command=c, description=d) for c, d in texts.COMMANDS.items()]
     await bot.set_my_commands(commands, scope=BotCommandScopeAllPrivateChats())
+    await bot.set_chat_menu_button(
+        menu_button=MenuButtonWebApp(
+            text=texts.MENU_BUTTON,
+            web_app=WebAppInfo(url=settings.public_base_url.rstrip("/") + "/"),
+        )
+    )
     await bot.set_my_description(texts.BOT_DESCRIPTION)
     await bot.set_my_short_description(texts.BOT_SHORT_DESCRIPTION)

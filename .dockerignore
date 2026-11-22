@@ -7,3 +7,4 @@ secrets/
 .ruff_cache/
 tests/
 webapp/node_modules/
+webapp/dist/

@@ -283,3 +283,16 @@ async def test_merge_upgrades_want_to_try(session) -> None:
     assert dish_svc.normalize_title("  Олів’Є  салат ") == "олів'є салат"
     assert (await dish_svc.find_by_title(session, 1, "РАМЕН")).id == dish.id
     assert await dish_svc.find_by_title(session, 1, "Рамен з куркою") is None
+
+
+async def test_saved_single_dish_offers_open_in_app(sessionmaker, session, fake_bot) -> None:
+    await add_member(session, "Ігор", tg_user_id=10)
+    dp = build_dispatcher(sessionmaker, [])
+    await feed(dp, fake_bot, make_message_update(10, "деруни"))
+    await run_worker(sessionmaker, fake_bot, FakeAI([{"dishes": [dish_json("Деруни")]}]))
+    job = await session.scalar(select(ImportJob))
+    await press(dp, fake_bot, 10, DraftCb(job=job.id, i=0, a="save"), 1)
+    dish = await session.scalar(select(Dish))
+    btn = fake_bot.session.edits()[-1].reply_markup.inline_keyboard[0][0]
+    assert btn.text == texts.BTN_OPEN_IN_APP
+    assert btn.web_app.url == f"https://tarilka.test/dish/{dish.id}"

@@ -1,0 +1,19 @@
+{
+  "name": "tarilka-webapp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "gen:api": "openapi-typescript openapi.json -o src/api-types.ts"
+  },
+  "dependencies": {
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "2.10.6",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vite": "5.4.21"
+  }
+}

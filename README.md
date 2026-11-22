@@ -20,6 +20,20 @@ TEST_DATABASE_URL=postgresql+asyncpg://tarilka:***@localhost:5432/tarilka_test .
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 ```
 
+## Mini App (вітрина)
+
+Vite + Preact + TypeScript у `webapp/`; збирається в Docker (Node-стейдж) і роздається FastAPI
+(`webapp/dist`, SPA-fallback на `index.html`). Тема й кнопки — через `telegram-web-app.js`.
+
+```bash
+cd webapp && npm ci
+npm run dev          # http://localhost:5173, /api проксується на uvicorn :8000 (ENV=dev, DEV_AUTH_MEMBER_ID=1)
+npm run build        # перевірка типів + збірка в dist/
+# після зміни API: оновити типи з OpenAPI
+(cd .. && ENV=test .venv/bin/python -c "import json; from app.main import create_app; json.dump(create_app().openapi(), open('webapp/openapi.json','w'), ensure_ascii=False, indent=1)")
+npm run gen:api
+```
+
 ## Деплой (VPS)
 
 Контейнер `app` працює в Docker-мережі `infra` поруч із `postgres`; Caddy (`/opt/n8n/Caddyfile`) проксує `tarilka.romis.cloud` → `tarilka-app:8000` і сам випускає TLS. Міграції виконуються при старті контейнера, вебхук і команди бота встановлюються там само (`ENV=prod`).

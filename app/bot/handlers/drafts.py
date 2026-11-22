@@ -1,6 +1,7 @@
 """Кнопки картки-чернетки: зберегти, хто вміє, теги, назва, статус, відкинути."""
 
 from aiogram import Bot, Router
+from aiogram.enums import ChatType
 from aiogram.types import CallbackQuery, ForceReply
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,6 +98,8 @@ async def on_draft(
             return
     await session.commit()
     text, markup = card or cards.render_job(meta, job)
+    if markup is None and cq.message.chat.type == ChatType.PRIVATE:
+        markup = cards.open_in_app_markup(job, get_settings().public_base_url)
     await safe_edit(bot, chat_id, msg_id, text, markup)
     await cq.answer()
 

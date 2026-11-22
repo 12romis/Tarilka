@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     admin_tg_ids: Annotated[list[int], NoDecode] = []
     database_url: str = "postgresql+asyncpg://tarilka:tarilka@localhost:5432/tarilka"
     media_dir: str = "/data/media"
+    webapp_dir: str = "webapp/dist"  # зібрана Mini App (Vite)
     timezone: str = "Europe/Kyiv"
     invite_ttl_hours: int = 24
     # Лише для ENV=dev: вхід в API без initData від імені цього члена сім'ї.

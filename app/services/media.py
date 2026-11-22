@@ -8,6 +8,9 @@ from typing import Any
 
 import httpx
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
+
+register_heif_opener()  # HEIC з iPhone при завантаженні фото у вітрині
 
 log = logging.getLogger("tarilka.media")
 

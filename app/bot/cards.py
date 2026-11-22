@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app import texts
@@ -233,3 +233,16 @@ def dish_line(info: DishInfo, now: datetime) -> str:
         parts.append(texts.STATUS["want_to_try"])
     parts.append(_ago(now, d.last_cooked_at))
     return f"{emoji} {d.title}\n     " + "  ·  ".join(parts)
+
+
+def open_in_app_markup(job: ImportJob, base_url: str) -> InlineKeyboardMarkup | None:
+    """Після збереження однієї страви — кнопка, що відкриває її у вітрині (лише в приваті)."""
+    saved = [d["dish_id"] for d in dr.drafts(job) if d["state"] == dr.SAVED and d.get("dish_id")]
+    if len(saved) != 1 or not base_url:
+        return None
+    kb = InlineKeyboardBuilder()
+    kb.button(
+        text=texts.BTN_OPEN_IN_APP,
+        web_app=WebAppInfo(url=f"{base_url.rstrip('/')}/dish/{saved[0]}"),
+    )
+    return kb.as_markup()

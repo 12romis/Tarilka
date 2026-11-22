@@ -6,12 +6,12 @@ from typing import Annotated, Any
 
 from aiogram.types import Update
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import meta
+from app.api import dishes, meta
 from app.bot.router import build_bot, build_dispatcher, setup_telegram
 from app.config import get_settings
 from app.db.session import dispose_engine, get_session, get_sessionmaker
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
         title="Tarilka", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json"
     )
     app.include_router(meta.router)
+    app.include_router(dishes.router)
 
     @app.post("/tg/webhook", include_in_schema=False)
     async def tg_webhook(
@@ -79,7 +80,29 @@ def create_app() -> FastAPI:
     media = Path(settings.media_dir)
     if media.is_dir():
         app.mount("/media", StaticFiles(directory=media), name="media")
+    mount_webapp(app, Path(settings.webapp_dir))
     return app
+
+
+def mount_webapp(app: FastAPI, dist: Path) -> None:
+    """Статика Mini App: файли з dist, решта шляхів — index.html (клієнтський роутинг)."""
+    index = dist / "index.html"
+    if not index.is_file():
+        return
+    root = dist.resolve()
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa(path: str) -> FileResponse:
+        if path.startswith(("api/", "tg/", "media/")):
+            raise HTTPException(status.HTTP_404_NOT_FOUND)
+        file = (dist / path).resolve()
+        if path and file.is_file() and file.is_relative_to(root):
+            # імена в assets/ містять хеш — їх можна кешувати назавжди
+            cache = (
+                "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
+            )
+            return FileResponse(file, headers={"Cache-Control": cache})
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 # force: залежності імпорту (trafilatura та ін.) самі чіпляють обробник до root.
