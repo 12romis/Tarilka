@@ -68,3 +68,36 @@ async def test_invite_admin_only(sessionmaker, session, fake_bot) -> None:
     dp = build_dispatcher(sessionmaker, [])
     await feed(dp, fake_bot, make_message_update(20, "/invite"))
     assert fake_bot.session.sent_texts() == [texts.INVITE_ADMIN_ONLY]
+
+
+async def test_help(sessionmaker, session, fake_bot) -> None:
+    await add_member(session, "Ігор", tg_user_id=10)
+    dp = build_dispatcher(sessionmaker, [])
+    await feed(dp, fake_bot, make_message_update(10, "/help"))
+    msg = fake_bot.session.sent()[-1]
+    assert msg.parse_mode == "HTML" and msg.text.startswith("<b>🍽 Тарілка")
+    assert "@tarilka_test_bot" in msg.text
+
+
+def test_help_is_valid_html_and_descriptions_fit() -> None:
+    from html.parser import HTMLParser
+
+    class Check(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stack: list[str] = []
+
+        def handle_starttag(self, tag, attrs):
+            assert tag in {"b", "i"}, tag
+            self.stack.append(tag)
+
+        def handle_endtag(self, tag):
+            assert self.stack.pop() == tag
+
+    c = Check()
+    c.feed(texts.HELP.format(bot_username="x"))
+    assert c.stack == []
+    assert len(texts.HELP) < 4096
+    assert len(texts.BOT_DESCRIPTION) <= 512
+    assert len(texts.BOT_SHORT_DESCRIPTION) <= 120
+    assert "help" in texts.COMMANDS

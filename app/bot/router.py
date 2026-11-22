@@ -38,3 +38,5 @@ async def setup_telegram(bot: Bot, settings: Settings) -> None:
     )
     commands = [BotCommand(command=c, description=d) for c, d in texts.COMMANDS.items()]
     await bot.set_my_commands(commands, scope=BotCommandScopeAllPrivateChats())
+    await bot.set_my_description(texts.BOT_DESCRIPTION)
+    await bot.set_my_short_description(texts.BOT_SHORT_DESCRIPTION)

@@ -55,6 +55,15 @@ async def invite(
     )
 
 
+async def help_(message: Message, bot: Bot) -> None:
+    me = await bot.me()
+    await message.answer(
+        texts.HELP.format(bot_username=me.username),
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
+
+
 def build_router() -> Router:
     """Новий Router на кожен Dispatcher (aiogram не дозволяє ділити один між кількома)."""
     router = Router(name="common")
@@ -63,4 +72,5 @@ def build_router() -> Router:
     )
     router.message.register(start, CommandStart())
     router.message.register(invite, Command("invite"))
+    router.message.register(help_, Command("help"))
     return router
