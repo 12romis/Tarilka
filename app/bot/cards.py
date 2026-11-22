@@ -60,7 +60,23 @@ def draft_text(meta: FamilyMeta, d: Draft) -> str:
         parts.append("🏷 " + ", ".join(other))
     if d.get("ingredients"):
         parts.append(texts.HAS_INGREDIENTS.format(n=len(d["ingredients"])))
+    if d.get("source_url"):
+        parts.append(texts.SOURCE_LINE.format(where=source_label(d)))
+    if d.get("notes"):
+        parts.append(d["notes"])
     return "\n".join(parts)
+
+
+def source_label(d: Draft) -> str:
+    """Коротко, звідки рецепт: «TikTok @автор» або домен сайту."""
+    from urllib.parse import urlsplit
+
+    platform = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube"}.get(
+        d.get("source_type") or ""
+    )
+    if platform:
+        return f"{platform} {d['source_author']}" if d.get("source_author") else platform
+    return (urlsplit(d["source_url"]).hostname or d["source_url"]).removeprefix("www.")
 
 
 def _header(job: ImportJob) -> str:
@@ -128,8 +144,6 @@ def render_draft(meta: FamilyMeta, job: ImportJob, i: int) -> Card:
     text = head + draft_text(meta, d)
     if d.get("existing_id"):
         text += "\n\n" + texts.ALREADY_EXISTS
-    if d.get("note"):
-        text += "\n\n" + d["note"]
     cb = lambda a, arg="": DraftCb(job=job.id, i=i, a=a, arg=arg)  # noqa: E731
     kb = InlineKeyboardBuilder()
     kb.button(text=texts.BTN_SAVE, callback_data=cb("save"))
@@ -140,6 +154,9 @@ def render_draft(meta: FamilyMeta, job: ImportJob, i: int) -> Card:
     kb.button(text=texts.BTN_STATUS.format(status=texts.STATUS[to]), callback_data=cb("st"))
     kb.button(text=texts.BTN_DISCARD, callback_data=cb("del"))
     sizes = [1, 2, 2, 1]
+    if d.get("source_url"):
+        kb.button(text=texts.BTN_OPEN_SOURCE, url=d["source_url"])
+        sizes.append(1)
     if len(ds) > 1:
         kb.button(text=texts.BTN_TO_LIST, callback_data=cb("sum"))
         kb.button(text=texts.BTN_NEXT, callback_data=cb("next"))

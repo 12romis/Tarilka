@@ -82,5 +82,10 @@ def create_app() -> FastAPI:
     return app
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# force: залежності імпорту (trafilatura та ін.) самі чіпляють обробник до root.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    force=True,
+)
 app = create_app()

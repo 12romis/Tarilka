@@ -15,7 +15,7 @@ from app.bot.keyboards import (
     CookCb,
     RateCb,
     WhatCb,
-    cook_buttons,
+    dish_buttons,
     rating_keyboard,
     reset_keyboard,
     what_keyboard,
@@ -148,7 +148,7 @@ async def _search_reply(
     infos = await dish_svc.load_info(session, meta, found)
     head = texts.COOKED_PICK if cooked else texts.FIND_RESULTS.format(q=q)
     body = "\n".join(f"\n{n}. {dish_line(i, now)}" for n, i in enumerate(infos, 1))
-    kb = cook_buttons(found, texts.BTN_COOKED if cooked else texts.BTN_COOK)
+    kb = dish_buttons(found, texts.BTN_COOKED if cooked else texts.BTN_COOK)
     await message.answer(head + "\n" + body, reply_markup=kb.as_markup())
 
 

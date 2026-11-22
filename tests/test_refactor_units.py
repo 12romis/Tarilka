@@ -4,17 +4,13 @@ import httpx
 import pytest
 from openai import APIConnectionError
 
-from app import texts
 from app.ai.client import AIError, OpenAIClient
 from app.ai.schemas import TextParse
 from app.config import get_settings
-from app.db.models import ImportJob, JobKind, JobStatus, SourceType
+from app.db.models import ImportJob, JobKind, SourceType
 from app.importers.registry import IMPORTERS
 from app.services import draft_fields as fields
 from app.services import drafts as dr
-from app.services.jobs import enqueue
-from app.services.members import add_member
-from tests.conftest import FakeAI, make_worker
 
 
 async def test_openai_errors_wrapped(monkeypatch) -> None:
@@ -63,25 +59,5 @@ def test_new_result_and_navigation() -> None:
     assert single["view"] == 0
 
 
-def test_registry_covers_input_kinds() -> None:
-    assert set(IMPORTERS) == {JobKind.text, JobKind.voice}
-
-
-async def test_unknown_kind_fails_permanently(session, sessionmaker, fake_bot) -> None:
-    m = await add_member(session, "Ігор", tg_user_id=1, is_admin=True)
-    job = await enqueue(
-        session,
-        family_id=1,
-        kind=JobKind.url,
-        payload={"url": "x"},
-        created_by=m.id,
-        tg_chat_id=1,
-        tg_message_id=5,
-    )
-    await make_worker(sessionmaker, fake_bot, FakeAI()).process(job.id)
-    await session.refresh(job)
-    assert job.status == JobStatus.failed  # без повторів
-    assert fake_bot.session.edits()[-1].text == texts.PARSE_FAILED.format(
-        reason=texts.REASON_UNKNOWN
-    )
-    assert fake_bot.session.sent_texts() == []  # адміна не турбуємо
+def test_registry_covers_all_job_kinds() -> None:
+    assert set(IMPORTERS) == set(JobKind)

@@ -14,11 +14,14 @@ from urllib.parse import urlencode
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import (
+    EditMessageCaption,
     EditMessageText,
     GetMe,
     SendDocument,
     SendMessage,
+    SendPhoto,
     TelegramMethod,
 )
 from aiogram.types import Chat, Message, User
@@ -96,11 +99,25 @@ class FakeSession(BaseSession):
         super().__init__()
         self.requests: list[TelegramMethod[Any]] = []
         self.message_ids: list[int] = []  # id надісланих повідомлень, по порядку
+        self.photo_ids: set[int] = set()  # повідомлення-фото: edit_message_text для них падає
 
     async def make_request(self, bot: Bot, method: TelegramMethod[Any], timeout: int | None = None):
         self.requests.append(method)
         if isinstance(method, GetMe):
             return BOT_USER
+        if isinstance(method, EditMessageText) and method.message_id in self.photo_ids:
+            raise TelegramBadRequest(
+                method=method, message="Bad Request: there is no text in the message to edit"
+            )
+        if isinstance(method, SendPhoto):
+            self.message_ids.append(1000 + len(self.requests))
+            self.photo_ids.add(self.message_ids[-1])
+            return Message(
+                message_id=self.message_ids[-1],
+                date=datetime.now(UTC),
+                chat=Chat(id=int(method.chat_id), type="private"),
+                caption=method.caption,
+            )
         if isinstance(method, SendMessage | SendDocument):
             self.message_ids.append(1000 + len(self.requests))
             return Message(
@@ -125,6 +142,15 @@ class FakeSession(BaseSession):
 
     def edits(self) -> list[EditMessageText]:
         return [m for m in self.requests if isinstance(m, EditMessageText)]
+
+    def last_card_text(self) -> str:
+        """Текст останньої картки — з edit_message_text, edit_message_caption чи send_photo."""
+        for m in reversed(self.requests):
+            if isinstance(m, EditMessageCaption | SendPhoto):
+                return m.caption or ""
+            if isinstance(m, EditMessageText) and m.message_id not in self.photo_ids:
+                return m.text
+        return ""
 
     def of(self, cls: type) -> list[Any]:
         return [m for m in self.requests if isinstance(m, cls)]
@@ -252,17 +278,24 @@ async def press(dp, bot: Bot, user_id: int, cb: Any, message_id: int) -> None:
     await feed(dp, bot, make_callback_update(user_id, cb.pack(), message_id=message_id))
 
 
-def make_worker(sessionmaker, bot: Bot, ai: Any):
+def make_worker(sessionmaker, bot: Bot, ai: Any, http: Any = None, media_dir: str = "/nonexistent"):
+    """Worker для тестів: без затримок повторів, з імітованим HTTP (httpx.MockTransport)."""
+    import httpx
+
     from app.config import get_settings
     from app.worker import Worker
 
-    s = get_settings().model_copy(update={"job_retry_delays_s": [0, 0]})
-    return Worker(sessionmaker, bot, ai, s)
+    s = get_settings().model_copy(
+        update={"job_retry_delays_s": [0, 0], "media_dir": media_dir, "ytdlp_cookies_file": ""}
+    )
+    w = Worker(sessionmaker, bot, ai, s)
+    w.http = http or httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(404)))
+    return w
 
 
-async def run_worker(sessionmaker, bot: Bot, ai: Any) -> None:
+async def run_worker(sessionmaker, bot: Bot, ai: Any, **kw: Any) -> None:
     """Один прохід worker: бере всі доступні задачі й чекає їх завершення."""
-    w = make_worker(sessionmaker, bot, ai)
+    w = make_worker(sessionmaker, bot, ai, **kw)
     await w.tick()
     for t in list(w.tasks):
         await t

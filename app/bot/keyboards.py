@@ -32,11 +32,18 @@ class WhatCb(CallbackData, prefix="w"):
     new: int = 0
 
 
-def cook_buttons(dishes: list[Dish], label: str = texts.BTN_COOK) -> InlineKeyboardBuilder:
+def dish_buttons(dishes: list[Dish], label: str = texts.BTN_COOK) -> InlineKeyboardBuilder:
+    """Рядок на страву: «Готую» і, якщо є джерело, «🔗» — відкрити рецепт чи відео."""
     kb = InlineKeyboardBuilder()
     for d in dishes:
-        kb.button(text=label.format(title=d.title[:40]), callback_data=CookCb(dish=d.id))
-    kb.adjust(1)
+        row = [
+            InlineKeyboardButton(
+                text=label.format(title=d.title[:40]), callback_data=CookCb(dish=d.id).pack()
+            )
+        ]
+        if d.source_url:
+            row.append(InlineKeyboardButton(text="🔗", url=d.source_url))
+        kb.row(*row)
     return kb
 
 
@@ -49,7 +56,7 @@ def rating_keyboard(dish_id: int) -> InlineKeyboardMarkup:
 
 
 def what_keyboard(dishes: list[Dish], meal: str, new: bool) -> InlineKeyboardMarkup:
-    kb = cook_buttons(dishes)
+    kb = dish_buttons(dishes)
     rows = [
         [
             InlineKeyboardButton(

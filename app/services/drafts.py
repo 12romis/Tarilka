@@ -18,6 +18,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.db.models import Dish, ImportJob, JobStatus, Member, SourceType
 from app.services import dishes as dish_svc
 from app.services.draft_fields import Draft, raw_text_draft
+from app.services.media import delete_images
 from app.services.meta import FamilyMeta
 
 PENDING, SAVED, DISCARDED = "pending", "saved", "discarded"
@@ -47,9 +48,25 @@ async def mark_existing(session: AsyncSession, job: ImportJob) -> None:
     """Позначає чернетки, назва яких уже є в каталозі (для попередження на картці)."""
     for d in drafts(job):
         if d["state"] == PENDING:
-            dish = await dish_svc.find_by_title(session, job.family_id, d["title"])
+            dish = await _find_existing(session, job.family_id, d)
             d["existing_id"] = dish.id if dish else None
     touch(job)
+
+
+async def _find_existing(session: AsyncSession, family_id: int, d: Draft) -> Dish | None:
+    if d.get("source_url"):
+        if dish := await dish_svc.find_by_url(session, family_id, d["source_url"]):
+            return dish
+    return await dish_svc.find_by_title(session, family_id, d["title"])
+
+
+def cover_image(job: ImportJob) -> str | None:
+    """Обкладинка для фото-картки — лише коли чернетка одна (зведена картка без фото)."""
+    ds = drafts(job)
+    if len(ds) != 1:
+        return None
+    images = ds[0].get("images") or []
+    return images[0]["path"] if images else None
 
 
 def drafts(job: ImportJob) -> list[Draft]:
@@ -86,7 +103,7 @@ async def save_one(
     if d["state"] != PENDING:
         return None
     result = job.result or {}
-    existing = await dish_svc.find_by_title(session, job.family_id, d["title"])
+    existing = await _find_existing(session, job.family_id, d)
     if existing is not None:
         await dish_svc.merge_draft(session, meta, existing, d)
         d["state"], d["dish_id"], d["merged"] = SAVED, existing.id, True
@@ -137,10 +154,14 @@ async def save_raw_text(
     return dish
 
 
-async def discard(session: AsyncSession, job: ImportJob, i: int | None) -> None:
+async def discard(
+    session: AsyncSession, job: ImportJob, i: int | None, media_dir: str | None = None
+) -> None:
     for idx, d in enumerate(drafts(job)):
         if (i is None or idx == i) and d["state"] == PENDING:
             d["state"] = DISCARDED
+            if media_dir:
+                delete_images(media_dir, d.get("images") or [])
     touch(job)
     await session.commit()
 

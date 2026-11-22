@@ -49,6 +49,12 @@ ops/restore.sh /var/backups/tarilka/tarilka-YYYYMMDD-HHMM.dump              # п
 docker compose stop app && ops/restore.sh <dump> tarilka && docker compose up -d   # прод
 ```
 
-## yt-dlp (етап 3)
+## Імпорт за посиланням, yt-dlp і cookies
 
-Оновлюється при старті worker; вручну: `docker compose exec worker uv pip install -U yt-dlp`.
+- `yt-dlp` оновлюється при кожному старті worker; cron на хості щодня о 05:10 робить
+  `docker compose restart worker`. Версія — у `import_jobs.result.meta.video.ytdlp`.
+- TikTok/YouTube блокують IP датацентру. Cookies з браузера (Netscape `cookies.txt`, напр.
+  розширення «Get cookies.txt LOCALLY», краще з окремого акаунта) класти в
+  `secrets/cookies.txt` — підхоплюються без перезапуску. Без файлу чи з протухлими cookies імпорт
+  працює через резерви: oEmbed → коментар користувача → фото → «лише посилання».
+- Відео не завантажується: беремо лише назву, підпис і обкладинку.

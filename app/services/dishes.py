@@ -16,6 +16,7 @@ from app.db.models import (
     DishStatus,
     DishTag,
     Family,
+    ImageOrigin,
     Member,
     SourceType,
     Tag,
@@ -67,9 +68,34 @@ async def create_from_draft(
     session.add_all(DishTag(dish_id=dish.id, tag_id=tid) for tid in tag_ids)
     cooks = [c for c in dict.fromkeys(draft.get("cooks") or []) if c in meta.member_by_id]
     session.add_all(DishCook(dish_id=dish.id, member_id=c) for c in cooks)
+    await add_images(session, dish, draft.get("images") or [])
     if commit:
         await session.commit()
     return dish
+
+
+async def add_images(session: AsyncSession, dish: Dish, images: list[dict[str, Any]]) -> None:
+    """Додає фото з чернетки; перше стає обкладинкою, якщо її ще немає."""
+    if not images:
+        return
+    existing = list(await session.scalars(select(DishImage).where(DishImage.dish_id == dish.id)))
+    has_cover = any(i.is_cover for i in existing)
+    known = {i.path for i in existing}
+    pos = max((i.position for i in existing), default=-1) + 1
+    for img in images:
+        if img["path"] in known:
+            continue
+        session.add(
+            DishImage(
+                dish_id=dish.id,
+                path=img["path"],
+                path_thumb=img.get("path_thumb"),
+                position=pos,
+                is_cover=not has_cover,
+                origin=ImageOrigin(img.get("origin", "upload")),
+            )
+        )
+        has_cover, pos = True, pos + 1
 
 
 # Різні апострофи й лапки в назвах вважаємо однаковими: «Олів’є» = «Олів'є».
@@ -139,6 +165,7 @@ async def merge_draft(session: AsyncSession, meta: FamilyMeta, dish: Dish, draft
             .values([{"dish_id": dish.id, "tag_id": t} for t in tag_ids])
             .on_conflict_do_nothing()
         )
+    await add_images(session, dish, draft.get("images") or [])
     cooks = [c for c in dict.fromkeys(draft.get("cooks") or []) if c in meta.member_by_id]
     if cooks:
         await session.execute(

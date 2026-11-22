@@ -6,6 +6,7 @@
 
 import asyncio
 import logging
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -59,10 +60,20 @@ def raw_from_info(url: str, st: SourceType, info: dict[str, Any]) -> RawExtract:
         raw.text_blocks.append(description)
     if info.get("thumbnail"):
         raw.image_urls.append(info["thumbnail"])
-    uploader = info.get("uploader_id") or info.get("uploader") or info.get("channel")
-    if uploader:
-        raw.source_author = uploader if uploader.startswith("@") else f"@{uploader}"
+    raw.source_author = _handle(info)
     return raw
+
+
+_HANDLE = re.compile(r"^@?[\w.]+$")
+
+
+def _handle(info: dict[str, Any]) -> str | None:
+    """Нік автора. TikTok кладе його в uploader, Instagram — у channel; uploader_id — число."""
+    from_url = re.search(r"/@([\w.]+)", info.get("uploader_url") or "")
+    for value in (from_url and from_url.group(1), info.get("channel"), info.get("uploader")):
+        if value and _HANDLE.match(value) and not value.lstrip("@").isdigit():
+            return value if value.startswith("@") else f"@{value}"
+    return None
 
 
 async def _oembed(client: httpx.AsyncClient, url: str, st: SourceType) -> RawExtract | None:

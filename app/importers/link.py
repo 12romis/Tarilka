@@ -121,6 +121,9 @@ async def import_link(
                 default_cook=None,
             )
     if draft is not None:
+        # Кроки зі structured-рецепта сайту — дослівно: LLM схильна їх стискати.
+        if raw.structured and raw.structured.get("steps"):
+            draft["steps"] = raw.structured["steps"]
         draft["images"] = await save_remote_images(ctx, raw.image_urls)
     return draft, raw, meta
 

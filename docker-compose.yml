@@ -19,7 +19,15 @@ services:
 
   worker:
     image: tarilka:local
-    command: ["python", "-m", "app.worker"]
+    # yt-dlp ламається після змін на платформах — оновлюємо при кожному старті
+    # (cron на хості щодня перезапускає worker, див. README).
+    command:
+      - sh
+      - -c
+      - >-
+        uv pip install --python /opt/venv/bin/python -q -U yt-dlp
+        || echo "yt-dlp: оновити не вдалося, працюємо з наявною версією";
+        exec python -m app.worker
     env_file: .env
     volumes:
       - media:/data/media

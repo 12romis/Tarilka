@@ -7,28 +7,32 @@ import asyncio
 import logging
 import shutil
 import tempfile
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import httpx
 from aiogram import Bot
+from aiogram.types import BufferedInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import texts
 from app.ai.client import AIClient, AIError, build_ai_client
-from app.bot.cards import render_job
-from app.bot.keyboards import DraftCb
+from app.bot.cards import dish_line, render_job
+from app.bot.keyboards import DraftCb, dish_buttons
 from app.bot.router import build_bot
-from app.bot.util import safe_edit
+from app.bot.util import caption, safe_edit
 from app.config import Settings, get_settings
 from app.db.models import ImportJob, JobKind, JobStatus, Member
 from app.db.session import dispose_engine, get_sessionmaker
-from app.importers.base import ImportContext, PermanentImportError
+from app.importers.base import DuplicateUrl, ImportContext, PermanentImportError
 from app.importers.registry import IMPORTERS
+from app.services import dishes as dish_svc
 from app.services import drafts as dr
 from app.services import jobs
+from app.services.media import jpeg_for_telegram
 from app.services.meta import load_meta
 
 log = logging.getLogger("tarilka.worker")
@@ -56,6 +60,7 @@ class Worker:
         self.bot = bot
         self.ai = ai
         self.settings = settings
+        self.http = httpx.AsyncClient(timeout=settings.fetch_timeout_s, follow_redirects=True)
         self.sem = asyncio.Semaphore(settings.worker_concurrency)
         self.tasks: set[asyncio.Task[None]] = set()
 
@@ -65,7 +70,15 @@ class Worker:
             raise PermanentImportError(texts.REASON_UNKNOWN)
         tmp = Path(tempfile.mkdtemp(prefix=f"imp-{job.id}-"))
         try:
-            ctx = ImportContext(self.ai, self.bot, await load_meta(session, job.family_id), tmp)
+            ctx = ImportContext(
+                ai=self.ai,
+                bot=self.bot,
+                meta=await load_meta(session, job.family_id),
+                tmp_dir=tmp,
+                session=session,
+                http=self.http,
+                settings=self.settings,
+            )
             out = await importer.run(job, ctx)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -88,6 +101,9 @@ class Worker:
                 result = await asyncio.wait_for(
                     self._import(session, job), timeout=self.settings.job_timeout_s
                 )
+            except DuplicateUrl as dup:
+                await self._on_duplicate(session, job, dup.dish_id)
+                return
             except Exception as exc:
                 await session.rollback()
                 await self._on_error(session, job_id, exc)
@@ -100,8 +116,51 @@ class Worker:
                 return
             meta = await load_meta(session, job.family_id)
             text, markup = render_job(meta, job)
-            await self._edit(job, text, markup)
+            cover = dr.cover_image(job)
+            if cover and job.tg_chat_id:
+                await self._send_photo_card(session, job, cover, text, markup)
+            else:
+                await self._edit(job, text, markup)
             log.info("job %s: чернеток %s", job.id, len(result["drafts"]))
+
+    async def _send_photo_card(
+        self, session: AsyncSession, job: ImportJob, cover: str, text: str, markup: Any
+    ) -> None:
+        """Картка з фото замість текстового «⏳ …»: старе повідомлення видаляємо."""
+        try:
+            photo = jpeg_for_telegram(self.settings.media_dir, cover)
+            sent = await self.bot.send_photo(
+                job.tg_chat_id,
+                BufferedInputFile(photo, filename="dish.jpg"),
+                caption=caption(text),
+                reply_markup=markup,
+            )
+        except Exception:
+            log.exception("job %s: не вдалося надіслати фото-картку", job.id)
+            await self._edit(job, text, markup)
+            return
+        old = job.tg_message_id
+        job.tg_message_id = sent.message_id
+        await session.commit()
+        if old:
+            try:
+                await self.bot.delete_message(job.tg_chat_id, old)
+            except Exception:
+                log.info("job %s: не вдалося видалити «⏳» повідомлення", job.id)
+
+    async def _on_duplicate(self, session: AsyncSession, job: ImportJob, dish_id: int) -> None:
+        await session.rollback()
+        job = await session.get(ImportJob, job.id)
+        assert job is not None
+        job.status, job.dish_id = JobStatus.done, dish_id
+        await session.commit()
+        dish = await dish_svc.get_family_dish(session, job.family_id, dish_id)
+        if dish is None:
+            return
+        meta = await load_meta(session, job.family_id)
+        info = (await dish_svc.load_info(session, meta, [dish]))[0]
+        text = texts.ALREADY_HAVE_LINK + "\n\n" + dish_line(info, datetime.now(UTC))
+        await self._edit(job, text, dish_buttons([dish]).as_markup())
 
     async def _on_error(self, session: AsyncSession, job_id: int, exc: BaseException) -> None:
         job = await session.get(ImportJob, job_id)  # після rollback об'єкт перечитується
@@ -224,12 +283,16 @@ async def main() -> None:
     try:
         await worker.run()
     finally:
+        await worker.http.aclose()
         await bot.session.close()
         await dispose_engine()
 
 
 if __name__ == "__main__":
+    # force: залежності імпорту (trafilatura та ін.) самі чіпляють обробник до root.
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        force=True,
     )
     asyncio.run(main())

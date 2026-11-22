@@ -8,6 +8,7 @@ from app import texts
 from app.bot import cards
 from app.bot.keyboards import DraftCb
 from app.bot.util import safe_edit
+from app.config import get_settings
 from app.db.models import ImportJob, JobStatus, Member
 from app.services import draft_fields as fields
 from app.services import drafts as dr
@@ -51,7 +52,7 @@ async def on_draft(
         case "all":
             await dr.save_all(session, meta, job)
         case "del":
-            await dr.discard(session, job, None if i < 0 else i)
+            await dr.discard(session, job, None if i < 0 else i, get_settings().media_dir)
             if i >= 0:
                 dr.set_view(job, dr.next_pending(job, i))
         case "one":
