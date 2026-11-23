@@ -80,6 +80,7 @@ export function Home() {
 
       <nav class="actions">
         <button class="btn" onClick={() => navigate("/catalog")}>📖 Каталог</button>
+        <button class="btn" onClick={() => navigate("/shopping")}>🛒 Покупки</button>
         <button class="btn" onClick={() => navigate("/new")}>➕ Додати</button>
         <button class="btn" onClick={() => navigate("/app")} aria-label="Застосунок">📲</button>
         {me?.is_admin && <button class="btn" onClick={() => navigate("/settings")}>⚙️</button>}

@@ -6,16 +6,32 @@ import {
 } from "../format";
 import { invalidateMeta, useAsync, useMainButton, useMeta } from "../hooks";
 import { navigate } from "../router";
-import { haptic, openSource } from "../tg";
+import { alertMsg, haptic, openSource } from "../tg";
 
 const DIFFICULTY = ["", "легко", "середньо", "складно"];
 
 type Ingredient = { name: string; qty?: number | null; unit?: string | null };
 
 /** Інгредієнти з перемикачем порцій; без вказаних порцій — як у рецепті й підказка. */
-function Ingredients({ items, servings }: { items: Ingredient[]; servings: number | null }) {
+function Ingredients(
+  { dishId, items, servings }: { dishId: number; items: Ingredient[]; servings: number | null },
+) {
   const [n, setN] = useState(servings ?? 0);
+  const [listed, setListed] = useState<"no" | "busy" | "yes">("no");
+  const toList = async () => {
+    if (listed === "yes") return navigate("/shopping");
+    setListed("busy");
+    try {
+      await api.shopAddDish(dishId, servings ? n : null);
+      haptic.success();
+      setListed("yes");
+    } catch {
+      setListed("no");
+      alertMsg("Не вдалося додати в список");
+    }
+  };
   useEffect(() => setN(servings ?? 0), [servings]);
+  useEffect(() => setListed((l) => (l === "yes" ? "no" : l)), [n]); // інші порції — можна додати знову
   const factor = servings ? n / servings : 1;
   const change = (delta: number) => {
     setN((v) => Math.min(50, Math.max(1, v + delta)));
@@ -54,6 +70,11 @@ function Ingredients({ items, servings }: { items: Ingredient[]; servings: numbe
           </li>
         ))}
       </ul>
+      <button class="btn btn--wide" onClick={toList} disabled={listed === "busy"}>
+        {listed === "yes" ? "✓ У списку покупок — відкрити"
+          : listed === "busy" ? "Додаю…"
+            : servings && factor !== 1 ? `🛒 У список покупок (на ${portions(n)})` : "🛒 У список покупок"}
+      </button>
     </section>
   );
 }
@@ -136,7 +157,7 @@ export function Dish({ id }: { id: number }) {
       )}
 
       {dish.ingredients.length > 0 && (
-        <Ingredients items={dish.ingredients} servings={dish.servings ?? null} />
+        <Ingredients dishId={dish.id} items={dish.ingredients} servings={dish.servings ?? null} />
       )}
 
       {dish.steps.length > 0 && (

@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -267,3 +268,46 @@ class ImportJob(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class Product(Base):
+    """Канонічний продукт сім'ї для списку покупок і холодильника («яйця», «вершки»)."""
+
+    __tablename__ = "products"
+    __table_args__ = (Index("uq_products_family_name", "family_id", "name", unique=True),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(100))  # у нижньому регістрі
+    aisle: Mapped[str] = mapped_column(String(20), server_default="other")  # services/shopping
+    # «Зазвичай є вдома» (сіль, олія): у списку — окремим згорнутим блоком.
+    staple: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Не купують (вода, лід): у список не потрапляє.
+    skip: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
+
+
+class IngredientProduct(Base):
+    """Кеш відповідності: назва інгредієнта як у рецепті → продукт (заповнює AI один раз)."""
+
+    __tablename__ = "ingredient_products"
+    family_id: Mapped[int] = mapped_column(
+        ForeignKey("families.id", ondelete="CASCADE"), primary_key=True
+    )
+    raw: Mapped[str] = mapped_column(String(200), primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+
+
+class ShoppingItem(Base):
+    """Рядок спільного списку покупок: внесок однієї страви або додане вручну."""
+
+    __tablename__ = "shopping_items"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id", ondelete="CASCADE"))
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    qty: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(30))
+    dish_id: Mapped[int | None] = mapped_column(ForeignKey("dishes.id", ondelete="CASCADE"))
+    servings: Mapped[int | None] = mapped_column(SmallInteger)
+    added_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)

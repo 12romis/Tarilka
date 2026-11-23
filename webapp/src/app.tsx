@@ -9,6 +9,7 @@ import { Edit } from "./pages/Edit";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
+import { Shopping } from "./pages/Shopping";
 import { Suggest } from "./pages/Suggest";
 import { atRoot, navigate, useLocation } from "./router";
 import { tg } from "./tg";
@@ -73,6 +74,7 @@ function page(route: ReturnType<typeof useLocation>["route"], query: URLSearchPa
     case "new": return <Edit />;
     case "settings": return <Settings />;
     case "app": return <AppPage />;
+    case "shopping": return <Shopping />;
     default: return <Home />;
   }
 }

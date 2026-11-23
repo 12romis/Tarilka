@@ -9,7 +9,8 @@ from aiogram.types import (
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import texts
-from app.bot.handlers import add, admin, common, drafts, what
+from app.ai.client import AIClient
+from app.bot.handlers import add, admin, common, drafts, shopping, what
 from app.bot.middlewares import AccessMiddleware
 from app.config import Settings
 
@@ -21,14 +22,16 @@ def build_bot(settings: Settings) -> Bot:
 
 
 def build_dispatcher(
-    sessionmaker: async_sessionmaker[AsyncSession], admin_ids: list[int]
+    sessionmaker: async_sessionmaker[AsyncSession],
+    admin_ids: list[int],
+    ai: AIClient | None = None,
 ) -> Dispatcher:
-    dp = Dispatcher()
+    dp = Dispatcher(ai=ai)  # ai — для коротких синхронних викликів (список покупок)
     access = AccessMiddleware(sessionmaker, admin_ids)
     dp.message.outer_middleware(access)
     dp.callback_query.outer_middleware(access)
     # Порядок важливий: команди й кнопки — раніше за «будь-який текст» з add.
-    for module in (common, admin, what, drafts, add):
+    for module in (common, admin, what, shopping, drafts, add):
         dp.include_router(module.build_router())
     return dp
 

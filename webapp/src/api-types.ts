@@ -272,14 +272,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/shopping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get List */
+        get: operations["get_list_api_shopping_get"];
+        put?: never;
+        post?: never;
+        /** Clear */
+        delete: operations["clear_api_shopping_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shopping/dishes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Dish */
+        post: operations["add_dish_api_shopping_dishes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shopping/dishes/{dish_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Dish */
+        delete: operations["remove_dish_api_shopping_dishes__dish_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shopping/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Items */
+        post: operations["add_items_api_shopping_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shopping/products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Check */
+        patch: operations["check_api_shopping_products__product_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddDishIn */
+        AddDishIn: {
+            /** Dish Id */
+            dish_id: number;
+            /** Servings */
+            servings?: number | null;
+        };
+        /** AddTextIn */
+        AddTextIn: {
+            /** Text */
+            text: string;
+        };
+        /** AisleOut */
+        AisleOut: {
+            /** Slug */
+            slug: string;
+            /** Emoji */
+            emoji: string;
+            /** Label */
+            label: string;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+        };
+        /** AmountOut */
+        AmountOut: {
+            /** Qty */
+            qty: number;
+            /** Unit */
+            unit: string | null;
+        };
         /** Body_upload_image_api_dishes__dish_id__images_post */
         Body_upload_image_api_dishes__dish_id__images_post: {
             /** File */
             file: string;
+        };
+        /** CheckIn */
+        CheckIn: {
+            /** Checked */
+            checked: boolean;
         };
         /** CookLogOut */
         CookLogOut: {
@@ -456,6 +577,26 @@ export interface components {
             /** Unit */
             unit?: string | null;
         };
+        /** LineOut */
+        LineOut: {
+            /** Product Id */
+            product_id: number;
+            /** Name */
+            name: string;
+            /** Staple */
+            staple: boolean;
+            /** Checked */
+            checked: boolean;
+            /** Amounts */
+            amounts: components["schemas"]["AmountOut"][];
+            /**
+             * To Taste
+             * @description є рядки без кількості
+             */
+            to_taste: boolean;
+            /** Sources */
+            sources: string[];
+        };
         /** LinkOut */
         LinkOut: {
             /** Url */
@@ -467,6 +608,15 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** ListedDishOut */
+        ListedDishOut: {
+            /** Dish Id */
+            dish_id: number;
+            /** Title */
+            title: string;
+            /** Servings */
+            servings: number | null;
         };
         /** LoginIn */
         LoginIn: {
@@ -535,6 +685,19 @@ export interface components {
             last_seen_at: string;
             /** Current */
             current: boolean;
+        };
+        /** ShoppingOut */
+        ShoppingOut: {
+            /** Aisles */
+            aisles: components["schemas"]["AisleOut"][];
+            /** Staples */
+            staples: components["schemas"]["LineOut"][];
+            /** Checked */
+            checked: components["schemas"]["LineOut"][];
+            /** Dishes */
+            dishes: components["schemas"]["ListedDishOut"][];
+            /** Open Count */
+            open_count: number;
         };
         /** SuggestIn */
         SuggestIn: {
@@ -1282,6 +1445,222 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_list_api_shopping_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_api_shopping_delete: {
+        parameters: {
+            query?: {
+                only_checked?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_dish_api_shopping_dishes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddDishIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_dish_api_shopping_dishes__dish_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dish_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_items_api_shopping_items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddTextIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_api_shopping_products__product_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingOut"];
+                };
             };
             /** @description Validation Error */
             422: {

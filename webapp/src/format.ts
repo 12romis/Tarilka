@@ -71,8 +71,16 @@ function roundTo(q: number, step: number): number {
 
 /** Кількість для іншої кількості порцій, округлена так, як відміряють на кухні. */
 export function scaleQty(qty: number, unit: string | null | undefined, factor: number): number {
-  const q = qty * factor;
-  if (factor === 1) return qty;
+  return factor === 1 ? qty : roundQty(qty * factor, unit);
+}
+
+/** Для магазину: штуки — вгору до цілого (1,5 яйця → 2), решта — як на кухні. */
+export function shopQty(q: number, unit: string | null | undefined): number {
+  if (!unit || ["шт.", "зубчик", "пучок"].includes(unit)) return Math.ceil(q - 0.01);
+  return roundQty(q, unit);
+}
+
+export function roundQty(q: number, unit: string | null | undefined): number {
   if (unit === "г" || unit === "мл") {
     if (q < 1) return Math.round(q * 10) / 10 || 0.1;
     return roundTo(q, q < 20 ? 1 : q < 100 ? 5 : q < 500 ? 10 : 50);

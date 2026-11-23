@@ -14,6 +14,8 @@ export type Me = components["schemas"]["MeOut"];
 export type Ingredient = components["schemas"]["IngredientIO"];
 export type LoginLink = components["schemas"]["LinkOut"];
 export type WebSession = components["schemas"]["SessionOut"];
+export type Shopping = components["schemas"]["ShoppingOut"];
+export type ShoppingLine = components["schemas"]["LineOut"];
 
 // Поза Telegram сесія живе в cookie; 401 означає, що треба увійти (або сесію завершили).
 const authListeners = new Set<() => void>();
@@ -70,6 +72,15 @@ export const api = {
     request<Member>("POST", "/api/members", { name, aliases }),
   updateMember: (id: number, body: { name?: string; aliases?: string[] }) =>
     request<Member>("PATCH", `/api/members/${id}`, body),
+  shopping: () => request<Shopping>("GET", "/api/shopping"),
+  shopAddDish: (dishId: number, servings: number | null) =>
+    request<Shopping>("POST", "/api/shopping/dishes", { dish_id: dishId, servings }),
+  shopRemoveDish: (dishId: number) => request<Shopping>("DELETE", `/api/shopping/dishes/${dishId}`),
+  shopAddText: (text: string) => request<Shopping>("POST", "/api/shopping/items", { text }),
+  shopCheck: (productId: number, checked: boolean) =>
+    request<Shopping>("PATCH", `/api/shopping/products/${productId}`, { checked }),
+  shopClear: (onlyChecked: boolean) =>
+    request<Shopping>("DELETE", `/api/shopping?only_checked=${onlyChecked}`),
   webLink: () => request<LoginLink>("POST", "/api/auth/link", {}),
   login: (body: { token?: string; code?: string }) => request<void>("POST", "/api/auth/login", body),
   logout: () => request<void>("POST", "/api/auth/logout", {}),

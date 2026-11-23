@@ -10,6 +10,7 @@ export type Route =
   | { name: "new" }
   | { name: "settings" }
   | { name: "app" }
+  | { name: "shopping" }
   | { name: "login" };
 
 export function parse(pathname: string): Route {
@@ -21,6 +22,7 @@ export function parse(pathname: string): Route {
     case "/new": return { name: "new" };
     case "/settings": return { name: "settings" };
     case "/app": return { name: "app" };
+    case "/shopping": return { name: "shopping" };
     case "/login": return { name: "login" };
     default: return { name: "home" };
   }

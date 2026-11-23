@@ -1479,10 +1479,553 @@
      }
     }
    }
+  },
+  "/api/shopping": {
+   "get": {
+    "tags": [
+     "shopping"
+    ],
+    "summary": "Get List",
+    "operationId": "get_list_api_shopping_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShoppingOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "shopping"
+    ],
+    "summary": "Clear",
+    "operationId": "clear_api_shopping_delete",
+    "parameters": [
+     {
+      "name": "only_checked",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": true,
+       "title": "Only Checked"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShoppingOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/shopping/dishes": {
+   "post": {
+    "tags": [
+     "shopping"
+    ],
+    "summary": "Add Dish",
+    "operationId": "add_dish_api_shopping_dishes_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AddDishIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShoppingOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/shopping/dishes/{dish_id}": {
+   "delete": {
+    "tags": [
+     "shopping"
+    ],
+    "summary": "Remove Dish",
+    "operationId": "remove_dish_api_shopping_dishes__dish_id__delete",
+    "parameters": [
+     {
+      "name": "dish_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Dish Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShoppingOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/shopping/items": {
+   "post": {
+    "tags": [
+     "shopping"
+    ],
+    "summary": "Add Items",
+    "operationId": "add_items_api_shopping_items_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AddTextIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShoppingOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/shopping/products/{product_id}": {
+   "patch": {
+    "tags": [
+     "shopping"
+    ],
+    "summary": "Check",
+    "operationId": "check_api_shopping_products__product_id__patch",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CheckIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShoppingOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
   "schemas": {
+   "AddDishIn": {
+    "properties": {
+     "dish_id": {
+      "type": "integer",
+      "title": "Dish Id"
+     },
+     "servings": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 100.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Servings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "dish_id"
+    ],
+    "title": "AddDishIn"
+   },
+   "AddTextIn": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "AddTextIn"
+   },
+   "AisleOut": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "emoji": {
+      "type": "string",
+      "title": "Emoji"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "lines": {
+      "items": {
+       "$ref": "#/components/schemas/LineOut"
+      },
+      "type": "array",
+      "title": "Lines"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "emoji",
+     "label",
+     "lines"
+    ],
+    "title": "AisleOut"
+   },
+   "AmountOut": {
+    "properties": {
+     "qty": {
+      "type": "number",
+      "title": "Qty"
+     },
+     "unit": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unit"
+     }
+    },
+    "type": "object",
+    "required": [
+     "qty",
+     "unit"
+    ],
+    "title": "AmountOut"
+   },
    "Body_upload_image_api_dishes__dish_id__images_post": {
     "properties": {
      "file": {
@@ -1496,6 +2039,19 @@
      "file"
     ],
     "title": "Body_upload_image_api_dishes__dish_id__images_post"
+   },
+   "CheckIn": {
+    "properties": {
+     "checked": {
+      "type": "boolean",
+      "title": "Checked"
+     }
+    },
+    "type": "object",
+    "required": [
+     "checked"
+    ],
+    "title": "CheckIn"
    },
    "CookLogOut": {
     "properties": {
@@ -2218,6 +2774,56 @@
     ],
     "title": "IngredientIO"
    },
+   "LineOut": {
+    "properties": {
+     "product_id": {
+      "type": "integer",
+      "title": "Product Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "staple": {
+      "type": "boolean",
+      "title": "Staple"
+     },
+     "checked": {
+      "type": "boolean",
+      "title": "Checked"
+     },
+     "amounts": {
+      "items": {
+       "$ref": "#/components/schemas/AmountOut"
+      },
+      "type": "array",
+      "title": "Amounts"
+     },
+     "to_taste": {
+      "type": "boolean",
+      "title": "To Taste",
+      "description": "є рядки без кількості"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "type": "object",
+    "required": [
+     "product_id",
+     "name",
+     "staple",
+     "checked",
+     "amounts",
+     "to_taste",
+     "sources"
+    ],
+    "title": "LineOut"
+   },
    "LinkOut": {
     "properties": {
      "url": {
@@ -2241,6 +2847,36 @@
      "expires_at"
     ],
     "title": "LinkOut"
+   },
+   "ListedDishOut": {
+    "properties": {
+     "dish_id": {
+      "type": "integer",
+      "title": "Dish Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "servings": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Servings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "dish_id",
+     "title",
+     "servings"
+    ],
+    "title": "ListedDishOut"
    },
    "LoginIn": {
     "properties": {
@@ -2440,6 +3076,51 @@
      "current"
     ],
     "title": "SessionOut"
+   },
+   "ShoppingOut": {
+    "properties": {
+     "aisles": {
+      "items": {
+       "$ref": "#/components/schemas/AisleOut"
+      },
+      "type": "array",
+      "title": "Aisles"
+     },
+     "staples": {
+      "items": {
+       "$ref": "#/components/schemas/LineOut"
+      },
+      "type": "array",
+      "title": "Staples"
+     },
+     "checked": {
+      "items": {
+       "$ref": "#/components/schemas/LineOut"
+      },
+      "type": "array",
+      "title": "Checked"
+     },
+     "dishes": {
+      "items": {
+       "$ref": "#/components/schemas/ListedDishOut"
+      },
+      "type": "array",
+      "title": "Dishes"
+     },
+     "open_count": {
+      "type": "integer",
+      "title": "Open Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "aisles",
+     "staples",
+     "checked",
+     "dishes",
+     "open_count"
+    ],
+    "title": "ShoppingOut"
    },
    "SuggestIn": {
     "properties": {

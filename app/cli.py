@@ -92,6 +92,28 @@ async def _servings(args: argparse.Namespace) -> None:
     print(f"{verb} порції: {len(result)} страв, ${cost:.4f}")
 
 
+async def _map_ingredients(args: argparse.Namespace) -> None:
+    from app.ai.client import build_ai_client
+    from app.config import get_settings
+    from app.services.shopping import canonicalize
+
+    async with get_sessionmaker()() as session:
+        names = [
+            i["name"]
+            for ingredients in await session.scalars(
+                select(Dish.ingredients).where(Dish.family_id == args.family)
+            )
+            for i in ingredients or []
+            if isinstance(i, dict) and i.get("name")
+        ]
+        found, cost = await canonicalize(
+            session, build_ai_client(get_settings()), args.family, names
+        )
+        await session.commit()
+    products = {p.name for p in found.values()}
+    print(f"назв: {len(found)} → продуктів: {len(products)}, ${cost:.4f}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="app.cli")
     sub = p.add_subparsers(required=True)
@@ -109,6 +131,9 @@ def main() -> None:
     serv = sub.add_parser("fill-servings", help="AI оцінює порції, де їх не вказано")
     serv.add_argument("--dry-run", action="store_true", help="лише показати, не зберігати")
     serv.set_defaults(func=_servings)
+    mp = sub.add_parser("map-ingredients", help="AI зводить назви інгредієнтів до продуктів")
+    mp.add_argument("--family", type=int, default=1)
+    mp.set_defaults(func=_map_ingredients)
     args = p.parse_args()
 
     async def run() -> None:

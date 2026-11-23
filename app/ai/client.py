@@ -6,13 +6,14 @@
 
 import base64
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
 from app.ai.pricing import DEFAULT_PRICES, cost_usd
-from app.config import Settings
+from app.config import Settings, get_settings
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -111,3 +112,10 @@ def build_ai_client(settings: Settings) -> AIClient:
     if not settings.llm_api_key:
         raise RuntimeError("LLM_API_KEY не задано")
     return OpenAIClient(settings)
+
+
+@lru_cache
+def default_ai() -> AIClient | None:
+    """Спільний клієнт для API й бота; None — ключ не задано (функції працюють без AI)."""
+    settings = get_settings()
+    return build_ai_client(settings) if settings.llm_api_key else None

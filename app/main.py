@@ -12,7 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import dishes, meta, web_login
+from app.ai.client import default_ai
+from app.api import dishes, meta, shopping, web_login
 from app.bot.router import build_bot, build_dispatcher, setup_telegram
 from app.config import get_settings
 from app.db.session import dispose_engine, get_session, get_sessionmaker
@@ -25,7 +26,7 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.bot = build_bot(settings) if settings.bot_token else None
-    app.state.dp = build_dispatcher(get_sessionmaker(), settings.admin_tg_ids)
+    app.state.dp = build_dispatcher(get_sessionmaker(), settings.admin_tg_ids, default_ai())
     if app.state.bot and settings.env == "prod":
         await setup_telegram(app.state.bot, settings)
         log.info("Вебхук встановлено: %s", settings.webhook_url)
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(meta.router)
     app.include_router(dishes.router)
     app.include_router(web_login.router)
+    app.include_router(shopping.router)
 
     @app.post("/tg/webhook", include_in_schema=False)
     async def tg_webhook(

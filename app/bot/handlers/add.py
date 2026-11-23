@@ -7,7 +7,9 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import texts
+from app.ai.client import AIClient
 from app.bot.cards import render_job
+from app.bot.handlers.shopping import add_from_text, shopping_request
 from app.bot.handlers.what import send_what
 from app.bot.util import safe_edit
 from app.bot.views import existing_dish_message
@@ -81,12 +83,17 @@ async def on_rename_reply(
     await message.answer(texts.RENAMED.format(title=title))
 
 
-async def on_text(message: Message, bot: Bot, session: AsyncSession, member: Member) -> None:
+async def on_text(
+    message: Message, bot: Bot, session: AsyncSession, member: Member, ai: AIClient | None = None
+) -> None:
     text = await addressed_text(message, bot)
     if not text:
         return
     if urls := message_urls(message):
         await enqueue_links(message, session, member, urls, strip_urls(text))
+        return
+    if (what := shopping_request(text)) is not None:
+        await add_from_text(message, session, member, ai, what)
         return
     if is_what_request(text):
         await send_what(message, session, member)

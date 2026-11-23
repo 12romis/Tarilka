@@ -74,7 +74,7 @@ async def sessionmaker(migrated_db: str) -> AsyncIterator[async_sessionmaker[Asy
         await conn.execute(
             text(
                 "TRUNCATE invites, members, dishes, dish_cooks, dish_tags, dish_images, cook_log, "
-                "import_jobs RESTART IDENTITY CASCADE"
+                "import_jobs, products RESTART IDENTITY CASCADE"
             )
         )
     yield async_sessionmaker(engine, expire_on_commit=False)
