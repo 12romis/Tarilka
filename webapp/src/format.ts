@@ -59,3 +59,43 @@ export function sourceLabel(url: string, type: string): string {
     return url;
   }
 }
+
+const FRACTIONS: Record<number, string> = { 0.25: "¼", 0.5: "½", 0.75: "¾" };
+const METRIC = new Set(["г", "мл", "кг", "л"]);
+/** Крок округлення для «штучних» одиниць; решта (шт., зубчик, без одиниці…) — по ½. */
+const COUNT_STEP: Record<string, number> = { "ч. л.": 0.25, "склянка": 0.25, "щіпка": 1, "пучок": 1 };
+
+function roundTo(q: number, step: number): number {
+  return Math.max(step, Math.round(q / step) * step);
+}
+
+/** Кількість для іншої кількості порцій, округлена так, як відміряють на кухні. */
+export function scaleQty(qty: number, unit: string | null | undefined, factor: number): number {
+  const q = qty * factor;
+  if (factor === 1) return qty;
+  if (unit === "г" || unit === "мл") {
+    if (q < 1) return Math.round(q * 10) / 10 || 0.1;
+    return roundTo(q, q < 20 ? 1 : q < 100 ? 5 : q < 500 ? 10 : 50);
+  }
+  if (unit === "кг" || unit === "л") return roundTo(q, q < 1 ? 0.05 : 0.1);
+  return roundTo(q, COUNT_STEP[unit ?? ""] ?? 0.5);
+}
+
+/** «1½ ст. л.», «250 г», «0,15 кг»; без кількості — лише одиниця («за смаком»). */
+export function fmtQty(q: number | null | undefined, unit: string | null | undefined): string {
+  if (q === null || q === undefined) return unit ?? "";
+  let n: string;
+  const whole = Math.floor(q);
+  const frac = FRACTIONS[Math.round((q - whole) * 100) / 100];
+  if (!METRIC.has(unit ?? "") && frac) n = (whole ? String(whole) : "") + frac;
+  else n = String(Math.round(q * 100) / 100).replace(".", ",");
+  return unit ? `${n} ${unit}` : n;
+}
+
+/** «1 порція», «2 порції», «5 порцій». */
+export function portions(n: number): string {
+  const d10 = n % 10, d100 = n % 100;
+  const word = d10 === 1 && d100 !== 11 ? "порція"
+    : d10 >= 2 && d10 <= 4 && (d100 < 12 || d100 > 14) ? "порції" : "порцій";
+  return `${n} ${word}`;
+}

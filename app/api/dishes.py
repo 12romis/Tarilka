@@ -23,6 +23,7 @@ from app.services import catalog
 from app.services import dishes as dish_svc
 from app.services.meta import load_meta
 from app.services.suggest import Filters, suggest
+from app.services.units import normalize_ingredients
 
 router = APIRouter(prefix="/api")
 
@@ -86,8 +87,8 @@ async def get_dish(dish_id: int, member: CurrentMember, session: SessionDep) -> 
 async def _apply(session, member: Member, dish: Dish, body: DishIn) -> None:
     meta = await load_meta(session, member.family_id)
     data = body.model_dump(exclude_unset=True)
-    if "ingredients" in data and data["ingredients"] is not None:
-        data["ingredients"] = [i for i in data["ingredients"] if i.get("name")]
+    if "ingredients" in data:
+        data["ingredients"] = normalize_ingredients(data["ingredients"])
     await catalog.update_dish(session, dish, data, set(meta.by_id), set(meta.member_by_id))
 
 

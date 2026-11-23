@@ -1,17 +1,61 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { ErrorBox, FallbackMainButton, Loader, Stars } from "../components/ui";
-import { cookNames, cookedAgo, shortDate, sourceLabel, STATUS_LABEL, tagIndex } from "../format";
+import {
+  cookNames, cookedAgo, fmtQty, portions, scaleQty, shortDate, sourceLabel, STATUS_LABEL, tagIndex,
+} from "../format";
 import { invalidateMeta, useAsync, useMainButton, useMeta } from "../hooks";
 import { navigate } from "../router";
 import { haptic, openSource } from "../tg";
 
 const DIFFICULTY = ["", "легко", "середньо", "складно"];
 
-function fmtQty(q: number | null | undefined, unit: string | null | undefined): string {
-  if (q === null || q === undefined) return unit ?? "";
-  const n = Number.isInteger(q) ? String(q) : String(q).replace(".", ",");
-  return unit ? `${n} ${unit}` : n;
+type Ingredient = { name: string; qty?: number | null; unit?: string | null };
+
+/** Інгредієнти з перемикачем порцій; без вказаних порцій — як у рецепті й підказка. */
+function Ingredients({ items, servings }: { items: Ingredient[]; servings: number | null }) {
+  const [n, setN] = useState(servings ?? 0);
+  useEffect(() => setN(servings ?? 0), [servings]);
+  const factor = servings ? n / servings : 1;
+  const change = (delta: number) => {
+    setN((v) => Math.min(50, Math.max(1, v + delta)));
+    haptic.select();
+  };
+  const hasQty = items.some((i) => i.qty);
+
+  return (
+    <section class="section">
+      <div class="section__head">
+        <h2>Інгредієнти</h2>
+        {servings && hasQty && (
+          <div class="stepper">
+            <button class="btn btn--icon" onClick={() => change(-1)} disabled={n <= 1} aria-label="Менше порцій">−</button>
+            <span class="stepper__value">{portions(n)}</span>
+            <button class="btn btn--icon" onClick={() => change(1)} disabled={n >= 50} aria-label="Більше порцій">+</button>
+          </div>
+        )}
+      </div>
+      {servings && factor !== 1 && (
+        <p class="muted small">
+          Рецепт на {portions(servings)} ·{" "}
+          <button class="linkbtn" onClick={() => setN(servings)}>повернути</button>
+        </p>
+      )}
+      {!servings && hasQty && (
+        <p class="muted small">Вкажи кількість порцій у редагуванні — тоді їх можна буде перерахувати.</p>
+      )}
+      <ul class="ingredients">
+        {items.map((i) => (
+          <li>
+            <span>{i.name}</span>
+            <span class={factor !== 1 && i.qty ? "qty--scaled" : "muted"}>
+              {fmtQty(i.qty ? scaleQty(i.qty, i.unit, factor) : i.qty, i.unit)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export function Dish({ id }: { id: number }) {
@@ -41,7 +85,6 @@ export function Dish({ id }: { id: number }) {
   const facts = [
     dish.cook_time_min ? `⏱ ${dish.cook_time_min} хв` : null,
     dish.difficulty ? `📶 ${DIFFICULTY[dish.difficulty]}` : null,
-    dish.servings ? `🍽 ${dish.servings} порц.` : null,
   ].filter(Boolean);
 
   return (
@@ -93,14 +136,7 @@ export function Dish({ id }: { id: number }) {
       )}
 
       {dish.ingredients.length > 0 && (
-        <section class="section">
-          <h2>Інгредієнти</h2>
-          <ul class="ingredients">
-            {dish.ingredients.map((i) => (
-              <li><span>{i.name}</span><span class="muted">{fmtQty(i.qty, i.unit)}</span></li>
-            ))}
-          </ul>
-        </section>
+        <Ingredients items={dish.ingredients} servings={dish.servings ?? null} />
       )}
 
       {dish.steps.length > 0 && (

@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.services.units import normalize_ingredients
+
 
 class Ingredient(BaseModel):
     name: str
@@ -88,7 +90,7 @@ def clean_draft(
         "cook_time_min": positive(draft.cook_time_min),
         "difficulty": difficulty,
         "servings": positive(draft.servings),
-        "ingredients": [i.model_dump() for i in draft.ingredients] or None,
+        "ingredients": normalize_ingredients([i.model_dump() for i in draft.ingredients]),
         "steps": draft.steps or None,
         "notes": draft.notes,
         "confidence": draft.confidence,

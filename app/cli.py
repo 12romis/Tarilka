@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
-from app.db.models import ImportJob, Member
+from app.db.models import Dish, ImportJob, Member
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.members import add_member
 
@@ -74,6 +74,24 @@ async def _usage(args: argparse.Namespace) -> None:
     print(f"разом: ${total:.4f}")
 
 
+async def _servings(args: argparse.Namespace) -> None:
+    from app.ai.client import build_ai_client
+    from app.config import get_settings
+    from app.services.servings import fill_servings
+
+    async with get_sessionmaker()() as session:
+        result, cost = await fill_servings(
+            session, build_ai_client(get_settings()), dry_run=args.dry_run
+        )
+        titles = dict(
+            (await session.execute(select(Dish.id, Dish.title).where(Dish.id.in_(result)))).all()
+        )
+    for dish_id, n in result.items():
+        print(f"{dish_id}\t{n}\t{titles.get(dish_id, '')}")
+    verb = "оцінено б" if args.dry_run else "заповнено"
+    print(f"{verb} порції: {len(result)} страв, ${cost:.4f}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="app.cli")
     sub = p.add_subparsers(required=True)
@@ -88,6 +106,9 @@ def main() -> None:
     usage = sub.add_parser("ai-usage", help="витрати на OpenAI за останні дні")
     usage.add_argument("--days", type=int, default=30)
     usage.set_defaults(func=_usage)
+    serv = sub.add_parser("fill-servings", help="AI оцінює порції, де їх не вказано")
+    serv.add_argument("--dry-run", action="store_true", help="лише показати, не зберігати")
+    serv.set_defaults(func=_servings)
     args = p.parse_args()
 
     async def run() -> None:
