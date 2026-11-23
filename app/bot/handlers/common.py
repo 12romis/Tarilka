@@ -1,6 +1,7 @@
 from aiogram import Bot, F, Router
+from aiogram.enums import ChatType
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import texts
@@ -14,6 +15,9 @@ from app.services.members import (
     create_invite,
     is_admin,
 )
+from app.services.web_auth import create_login_link, login_url
+
+WEB_START_ARG = "web"
 
 
 async def start_invite(
@@ -64,13 +68,32 @@ async def help_(message: Message, bot: Bot) -> None:
     )
 
 
+async def web_login(message: Message, session: AsyncSession, member: Member) -> None:
+    """Одноразове посилання й код для входу в браузер/PWA (лише в особистому чаті)."""
+    if message.chat.type != ChatType.PRIVATE:
+        await message.answer(texts.WEB_LOGIN_PRIVATE_ONLY)
+        return
+    token, code, _ = await create_login_link(session, member)
+    url = login_url(get_settings().public_base_url, token)
+    await message.answer(
+        texts.WEB_LOGIN.format(code=code),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text=texts.WEB_LOGIN_BUTTON, url=url)]]
+        ),
+    )
+
+
 def build_router() -> Router:
     """Новий Router на кожен Dispatcher (aiogram не дозволяє ділити один між кількома)."""
     router = Router(name="common")
     router.message.register(
         start_invite, CommandStart(deep_link=True, magic=F.args.startswith(INVITE_PREFIX))
     )
+    # t.me/<bot>?start=web — кнопка «Отримати код» на сторінці входу PWA
+    router.message.register(web_login, CommandStart(deep_link=True, magic=F.args == WEB_START_ARG))
     router.message.register(start, CommandStart())
+    router.message.register(web_login, Command("web"))
     router.message.register(invite, Command("invite"))
     router.message.register(help_, Command("help"))
     return router

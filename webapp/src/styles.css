@@ -166,3 +166,16 @@ span.star { cursor: default; }
 .photo__actions .btn { background: color-mix(in srgb, var(--bg) 85%, transparent); }
 .photo--add { border: 2px dashed var(--hint); cursor: pointer; color: var(--hint); }
 .card { background: var(--section); border-radius: var(--radius); padding: 10px 12px; margin: 10px 0; display: grid; gap: 8px; }
+
+/* Поза Telegram (браузер, PWA): своя кнопка «Назад» і сторінка входу */
+.topbar {
+  position: sticky; top: 0; z-index: 10; background: var(--bg);
+  padding: calc(6px + env(safe-area-inset-top)) 8px 6px; box-shadow: 0 1px 0 var(--bg2);
+}
+.topbar__back { border: 0; background: none; color: var(--link); font-size: 16px; padding: 8px; cursor: pointer; }
+.login { max-width: 420px; padding-top: calc(48px + env(safe-area-inset-top)); }
+.login__bot { display: block; text-align: center; text-decoration: none; margin: 20px 0; }
+.login__code { font-size: 24px; letter-spacing: 6px; text-align: center; }
+.code { font-family: ui-monospace, monospace; letter-spacing: 2px; }
+.session { grid-template-columns: 1fr auto; align-items: center; }
+.session .badge { margin-left: 8px; white-space: nowrap; font-size: 12px; }

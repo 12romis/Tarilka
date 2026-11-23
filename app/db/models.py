@@ -113,6 +113,33 @@ class Invite(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
 
 
+class LoginLink(Base):
+    """Одноразовий вхід у браузер/PWA: посилання з токеном або 6-значний код з бота."""
+
+    __tablename__ = "login_links"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # sha256 токена
+    code: Mapped[str] = mapped_column(String(6))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
+
+
+class WebSession(Base):
+    """Сесія браузера/PWA (cookie). Сам токен не зберігається — лише sha256."""
+
+    __tablename__ = "web_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Tag(Base):
     __tablename__ = "tags"
     __table_args__ = (Index("uq_tags_family_kind_slug", "family_id", "kind", "slug", unique=True),)

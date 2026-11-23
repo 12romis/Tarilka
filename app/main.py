@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,12 +12,13 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import dishes, meta
+from app.api import dishes, meta, web_login
 from app.bot.router import build_bot, build_dispatcher, setup_telegram
 from app.config import get_settings
 from app.db.session import dispose_engine, get_session, get_sessionmaker
 
 log = logging.getLogger("tarilka")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 @asynccontextmanager
@@ -40,6 +42,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(meta.router)
     app.include_router(dishes.router)
+    app.include_router(web_login.router)
 
     @app.post("/tg/webhook", include_in_schema=False)
     async def tg_webhook(

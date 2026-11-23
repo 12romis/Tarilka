@@ -8,7 +8,9 @@ export type Route =
   | { name: "dish"; id: number }
   | { name: "edit"; id: number }
   | { name: "new" }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "app" }
+  | { name: "login" };
 
 export function parse(pathname: string): Route {
   const m = pathname.match(/^\/dish\/(\d+)(\/edit)?\/?$/);
@@ -18,6 +20,8 @@ export function parse(pathname: string): Route {
     case "/catalog": return { name: "catalog" };
     case "/new": return { name: "new" };
     case "/settings": return { name: "settings" };
+    case "/app": return { name: "app" };
+    case "/login": return { name: "login" };
     default: return { name: "home" };
   }
 }

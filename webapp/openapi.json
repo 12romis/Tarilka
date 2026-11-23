@@ -25,6 +25,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "responses": {
@@ -70,6 +86,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -117,6 +149,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -182,6 +230,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -395,6 +459,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "responses": {
@@ -438,6 +518,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -504,6 +600,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "responses": {
@@ -556,6 +668,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -621,6 +749,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "responses": {
@@ -668,6 +812,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -733,6 +893,22 @@
         }
        ],
        "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
       }
      }
     ],
@@ -808,6 +984,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "requestBody": {
@@ -880,6 +1072,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "responses": {
@@ -926,6 +1134,22 @@
        ],
        "title": "Authorization"
       }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
      }
     ],
     "requestBody": {
@@ -948,6 +1172,300 @@
         }
        }
       }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/link": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Create Link",
+    "description": "Посилання для відкриття Тарілки в браузері (кнопка в Mini App).",
+    "operationId": "create_link_api_auth_link_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LinkOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/login": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Login",
+    "operationId": "login_api_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/logout": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Logout",
+    "operationId": "logout_api_auth_logout_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/sessions": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Sessions",
+    "operationId": "sessions_api_auth_sessions_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/SessionOut"
+         },
+         "title": "Response Sessions Api Auth Sessions Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/sessions/{session_id}": {
+   "delete": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Revoke Session",
+    "operationId": "revoke_session_api_auth_sessions__session_id__delete",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
      },
      "422": {
       "description": "Validation Error",
@@ -1700,6 +2218,58 @@
     ],
     "title": "IngredientIO"
    },
+   "LinkOut": {
+    "properties": {
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Expires At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "url",
+     "code",
+     "expires_at"
+    ],
+    "title": "LinkOut"
+   },
+   "LoginIn": {
+    "properties": {
+     "token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Token"
+     },
+     "code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "title": "LoginIn"
+   },
    "MeOut": {
     "properties": {
      "id": {
@@ -1828,6 +2398,48 @@
      "total_dishes"
     ],
     "title": "MetaOut"
+   },
+   "SessionOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "user_agent": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "User Agent"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "last_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Last Seen At"
+     },
+     "current": {
+      "type": "boolean",
+      "title": "Current"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "user_agent",
+     "created_at",
+     "last_seen_at",
+     "current"
+    ],
+    "title": "SessionOut"
    },
    "SuggestIn": {
     "properties": {

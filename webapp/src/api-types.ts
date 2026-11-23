@@ -184,6 +184,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Link
+         * @description Посилання для відкриття Тарілки в браузері (кнопка в Mini App).
+         */
+        post: operations["create_link_api_auth_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions */
+        get: operations["sessions_api_auth_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Session */
+        delete: operations["revoke_session_api_auth_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -368,6 +456,25 @@ export interface components {
             /** Unit */
             unit?: string | null;
         };
+        /** LinkOut */
+        LinkOut: {
+            /** Url */
+            url: string;
+            /** Code */
+            code: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** LoginIn */
+        LoginIn: {
+            /** Token */
+            token?: string | null;
+            /** Code */
+            code?: string | null;
+        };
         /** MeOut */
         MeOut: {
             /** Id */
@@ -409,6 +516,25 @@ export interface components {
             };
             /** Total Dishes */
             total_dishes: number;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /** Id */
+            id: number;
+            /** User Agent */
+            user_agent: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /** Current */
+            current: boolean;
         };
         /** SuggestIn */
         SuggestIn: {
@@ -491,7 +617,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -522,7 +650,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -553,7 +683,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -590,7 +722,9 @@ export interface operations {
             path: {
                 member_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -638,7 +772,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -669,7 +805,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -706,7 +844,9 @@ export interface operations {
             path: {
                 dish_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -739,7 +879,9 @@ export interface operations {
             path: {
                 dish_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -770,7 +912,9 @@ export interface operations {
             path: {
                 dish_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -807,7 +951,9 @@ export interface operations {
             path: {
                 dish_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -844,7 +990,9 @@ export interface operations {
             path: {
                 dish_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -882,7 +1030,9 @@ export interface operations {
                 dish_id: number;
                 image_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -916,7 +1066,9 @@ export interface operations {
                 dish_id: number;
                 image_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -951,7 +1103,9 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -967,6 +1121,167 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SuggestOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_link_api_auth_link_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sessions_api_auth_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_session_api_auth_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
