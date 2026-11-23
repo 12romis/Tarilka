@@ -110,11 +110,8 @@ async def load_candidates(
     if f.exclude_ids:
         stmt = stmt.where(Dish.id.not_in(f.exclude_ids))
     if f.meal:
-        # Страва без жодного тегу прийому їжі підходить до будь-якого.
-        no_meal = ~exists().where(
-            DishTag.dish_id == Dish.id, DishTag.tag_id == Tag.id, Tag.kind == "meal"
-        )
-        stmt = stmt.where(_has_tag("meal", f.meal) | no_meal)
+        # Строго, як у каталозі: страва без тегу прийому їжі (соус, тісто) не пропонується.
+        stmt = stmt.where(_has_tag("meal", f.meal))
     if f.cooks:
         stmt = stmt.where(
             exists().where(DishCook.dish_id == Dish.id, DishCook.member_id.in_(f.cooks))

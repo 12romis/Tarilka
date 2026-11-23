@@ -127,7 +127,11 @@ async def test_foreign_family_job_rejected(sessionmaker, session, fake_bot) -> N
     assert await session.scalar(select(Dish)) is None
 
 
+ALL_MEALS = ["breakfast", "lunch", "dinner"]  # /what обирає прийом їжі за часом доби
+
+
 async def _seed(session, meta, titles, **kw):
+    kw.setdefault("meal", ALL_MEALS)
     return [
         await dish_svc.create_from_draft(session, meta, 1, {"title": t, **kw}, created_by=None)
         for t in titles

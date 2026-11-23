@@ -138,7 +138,7 @@ async def test_filters(session) -> None:
 
     assert await ids(Filters()) == {a.id, b.id, c.id}
     assert await ids(Filters(include_new=True)) == {a.id, b.id, c.id, d.id}
-    assert await ids(Filters(meal=["breakfast"])) == {a.id, c.id}
+    assert await ids(Filters(meal=["breakfast"])) == {a.id}  # без тегу — не підходить
     assert await ids(Filters(cooks=[m.id])) == {a.id}
     assert await ids(Filters(quick=True, include_new=True)) == {c.id, d.id}
     assert await ids(Filters(exclude_ids=[a.id])) == {b.id, c.id}
