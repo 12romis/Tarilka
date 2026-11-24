@@ -2291,6 +2291,92 @@
      }
     }
    }
+  },
+  "/api/pantry/dish/{dish_id}": {
+   "get": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Dish Stock",
+    "description": "Позначки біля інгредієнтів страви — за тими ж індексами, що й dish.ingredients.",
+    "operationId": "dish_stock_api_pantry_dish__dish_id__get",
+    "parameters": [
+     {
+      "name": "dish_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Dish Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "anyOf": [
+           {
+            "$ref": "#/components/schemas/IngredientStockOut"
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "title": "Response Dish Stock Api Pantry Dish  Dish Id  Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -3191,6 +3277,30 @@
     ],
     "title": "IngredientIO"
    },
+   "IngredientStockOut": {
+    "properties": {
+     "at_home": {
+      "type": "boolean",
+      "title": "At Home"
+     },
+     "in_list": {
+      "type": "boolean",
+      "title": "In List"
+     },
+     "staple": {
+      "type": "boolean",
+      "title": "Staple",
+      "description": "зазвичай є вдома — наявність не відстежується"
+     }
+    },
+    "type": "object",
+    "required": [
+     "at_home",
+     "in_list",
+     "staple"
+    ],
+    "title": "IngredientStockOut"
+   },
    "LineOut": {
     "properties": {
      "product_id": {
@@ -3663,6 +3773,12 @@
      "include_new": {
       "type": "boolean",
       "title": "Include New",
+      "default": false
+     },
+     "at_home": {
+      "type": "boolean",
+      "title": "At Home",
+      "description": "лише страви, для яких усе є вдома",
       "default": false
      },
      "exclude_ids": {

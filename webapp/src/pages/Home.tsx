@@ -36,6 +36,7 @@ export function Home() {
   const [cook, setCook] = useState<number[]>([]);
   const [quick, setQuick] = useState(false);
   const [withNew, setWithNew] = useState(false);
+  const [atHome, setAtHome] = useState(false);
 
   if (!meta) return <Loader />;
 
@@ -46,6 +47,7 @@ export function Home() {
     cook.forEach((c) => q.append("cook", String(c)));
     if (quick) q.set("quick", "1");
     if (withNew) q.set("new", "1");
+    if (atHome) q.set("home", "1");
     navigate(`/suggest?${q}`);
   };
 
@@ -70,6 +72,7 @@ export function Home() {
         ))}
         <Chip active={quick} onClick={() => setQuick(!quick)}>⚡ Швидко</Chip>
         <Chip active={withNew} onClick={() => setWithNew(!withNew)}>🆕 З новим</Chip>
+        <Chip active={atHome} onClick={() => setAtHome(!atHome)}>🧊 Усе є вдома</Chip>
       </div>
 
       <button class="bigbutton" onClick={go}>🎲 Що приготувати?</button>

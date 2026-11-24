@@ -430,6 +430,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pantry/dish/{dish_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dish Stock
+         * @description Позначки біля інгредієнтів страви — за тими ж індексами, що й dish.ingredients.
+         */
+        get: operations["dish_stock_api_pantry_dish__dish_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -664,6 +684,18 @@ export interface components {
             /** Unit */
             unit?: string | null;
         };
+        /** IngredientStockOut */
+        IngredientStockOut: {
+            /** At Home */
+            at_home: boolean;
+            /** In List */
+            in_list: boolean;
+            /**
+             * Staple
+             * @description зазвичай є вдома — наявність не відстежується
+             */
+            staple: boolean;
+        };
         /** LineOut */
         LineOut: {
             /** Product Id */
@@ -842,6 +874,12 @@ export interface components {
              * @default false
              */
             include_new: boolean;
+            /**
+             * At Home
+             * @description лише страви, для яких усе є вдома
+             * @default false
+             */
+            at_home: boolean;
             /**
              * Exclude Ids
              * @default []
@@ -1956,6 +1994,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CookOptionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dish_stock_api_pantry_dish__dish_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dish_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["IngredientStockOut"] | null)[];
                 };
             };
             /** @description Validation Error */

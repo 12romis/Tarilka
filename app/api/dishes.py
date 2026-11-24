@@ -18,8 +18,9 @@ from app.api.schemas import (
     SuggestIn,
     SuggestOut,
 )
+from app.api.shopping import AIDep
 from app.db.models import Dish, DishStatus, Member, SourceType
-from app.services import catalog
+from app.services import catalog, pantry
 from app.services import dishes as dish_svc
 from app.services.meta import load_meta
 from app.services.suggest import Filters, suggest
@@ -179,7 +180,7 @@ async def delete_image(
 
 @router.post("/suggest", response_model=SuggestOut)
 async def suggest_dishes(
-    body: SuggestIn, member: CurrentMember, session: SessionDep, settings: SettingsDep
+    body: SuggestIn, member: CurrentMember, session: SessionDep, settings: SettingsDep, ai: AIDep
 ) -> SuggestOut:
     f = Filters(
         meal=body.meal,
@@ -187,6 +188,9 @@ async def suggest_dishes(
         quick=body.quick,
         include_new=body.include_new,
         exclude_ids=body.exclude_ids,
+        only_ids=await pantry.ready_dish_ids(session, ai, member.family_id)
+        if body.at_home
+        else None,
     )
     dishes, total = await suggest(session, member.family_id, f, settings, datetime.now(UTC))
     return SuggestOut(

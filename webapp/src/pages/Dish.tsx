@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { api } from "../api";
+import { api, type IngredientStock } from "../api";
 import { ErrorBox, FallbackMainButton, Loader, Stars } from "../components/ui";
 import {
   cookNames, cookedAgo, fmtQty, portions, scaleQty, shortDate, sourceLabel, STATUS_LABEL, tagIndex,
@@ -13,11 +13,22 @@ const DIFFICULTY = ["", "легко", "середньо", "складно"];
 type Ingredient = { name: string; qty?: number | null; unit?: string | null };
 
 /** Інгредієнти з перемикачем порцій; без вказаних порцій — як у рецепті й підказка. */
+function StockMark({ s }: { s: IngredientStock | null | undefined }) {
+  if (!s) return null;
+  const marks = [s.at_home && "🧊", s.in_list && "🛒"].filter(Boolean).join("");
+  if (!marks) return null;
+  const label = [s.at_home && "є вдома", s.in_list && "у списку покупок"].filter(Boolean).join(", ");
+  return <span class="stockmark" title={label} aria-label={label}>{marks}</span>;
+}
+
 function Ingredients(
   { dishId, items, servings }: { dishId: number; items: Ingredient[]; servings: number | null },
 ) {
   const [n, setN] = useState(servings ?? 0);
   const [listed, setListed] = useState<"no" | "busy" | "yes">("no");
+  const [stock, setStock] = useState<(IngredientStock | null)[]>([]);
+  const loadStock = () => api.dishStock(dishId).then(setStock, () => setStock([]));
+  useEffect(() => void loadStock(), [dishId]);
   const toList = async () => {
     if (listed === "yes") return navigate("/shopping");
     setListed("busy");
@@ -25,6 +36,7 @@ function Ingredients(
       await api.shopAddDish(dishId, servings ? n : null);
       haptic.success();
       setListed("yes");
+      loadStock();
     } catch {
       setListed("no");
       alertMsg("Не вдалося додати в список");
@@ -61,15 +73,21 @@ function Ingredients(
         <p class="muted small">Вкажи кількість порцій у редагуванні — тоді їх можна буде перерахувати.</p>
       )}
       <ul class="ingredients">
-        {items.map((i) => (
+        {items.map((i, idx) => (
           <li>
-            <span>{i.name}</span>
+            <span>
+              {i.name}
+              <StockMark s={stock[idx]} />
+            </span>
             <span class={factor !== 1 && i.qty ? "qty--scaled" : "muted"}>
               {fmtQty(i.qty ? scaleQty(i.qty, i.unit, factor) : i.qty, i.unit)}
             </span>
           </li>
         ))}
       </ul>
+      {stock.some((s) => s && (s.at_home || s.in_list)) && (
+        <p class="muted small">🧊 є вдома · 🛒 уже в списку покупок</p>
+      )}
       <button class="btn btn--wide" onClick={toList} disabled={listed === "busy"}>
         {listed === "yes" ? "✓ У списку покупок — відкрити"
           : listed === "busy" ? "Додаю…"

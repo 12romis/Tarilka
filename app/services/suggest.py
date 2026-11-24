@@ -85,6 +85,7 @@ class Filters:
     quick: bool = False
     include_new: bool = False
     exclude_ids: list[int] = field(default_factory=list)
+    only_ids: set[int] | None = None  # напр. «усе є вдома»; None — без обмеження
 
 
 def _has_tag(kind: str, slugs: list[str]):
@@ -109,6 +110,8 @@ async def load_candidates(
     )
     if f.exclude_ids:
         stmt = stmt.where(Dish.id.not_in(f.exclude_ids))
+    if f.only_ids is not None:
+        stmt = stmt.where(Dish.id.in_(f.only_ids))
     if f.meal:
         # Строго, як у каталозі: страва без тегу прийому їжі (соус, тісто) не пропонується.
         stmt = stmt.where(_has_tag("meal", f.meal))

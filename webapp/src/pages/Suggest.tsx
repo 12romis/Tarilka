@@ -12,6 +12,7 @@ function filtersFrom(q: URLSearchParams): SuggestIn {
     cook: q.getAll("cook").map(Number),
     quick: q.get("quick") === "1",
     include_new: q.get("new") === "1",
+    at_home: q.get("home") === "1",
     exclude_ids: [],
   };
 }
@@ -101,7 +102,14 @@ export function Suggest({ query }: { query: URLSearchParams }) {
   return (
     <main class="page">
       <h1>🎲 Що приготувати</h1>
-      {cards.length === 0 && <p class="muted">Під ці фільтри нічого немає 🤷</p>}
+      {cards.length === 0 && !base.at_home && <p class="muted">Під ці фільтри нічого немає 🤷</p>}
+      {cards.length === 0 && base.at_home && (
+        <p class="hint">
+          🧊 Немає страв, для яких усе є вдома (з урахуванням інших фільтрів). Познач, що є в{" "}
+          <a class="link" href="/fridge" onClick={(e) => (e.preventDefault(), navigate("/fridge"))}>холодильнику</a>
+          {" "}— там же видно страви, яким бракує 1–3 продуктів.
+        </p>
+      )}
       {cards.map((d) => (
         <SuggestCard key={d.id} dish={d} meta={meta} onSkip={() => skip(d.id)} onCook={() => cook(d)} />
       ))}
@@ -113,7 +121,7 @@ export function Suggest({ query }: { query: URLSearchParams }) {
       )}
       <div class="actions">
         <button class="btn btn--primary" onClick={reroll}>🎲 Інші 3</button>
-        {(base.meal.length > 0 || base.cook.length > 0 || base.quick || !base.include_new) && (
+        {(base.meal.length > 0 || base.cook.length > 0 || base.quick || base.at_home || !base.include_new) && (
           <button class="btn" onClick={() => navigate("/suggest?new=1", { replace: true })}>↺ Без фільтрів</button>
         )}
       </div>

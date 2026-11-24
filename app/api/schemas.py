@@ -167,6 +167,7 @@ class SuggestIn(BaseModel):
     cook: list[int] = []
     quick: bool = False
     include_new: bool = False
+    at_home: bool = Field(False, description="лише страви, для яких усе є вдома")
     exclude_ids: list[int] = []
 
 

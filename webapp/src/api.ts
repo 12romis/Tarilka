@@ -18,6 +18,7 @@ export type Shopping = components["schemas"]["ShoppingOut"];
 export type ShoppingLine = components["schemas"]["LineOut"];
 export type Pantry = components["schemas"]["PantryOut"];
 export type CookOption = components["schemas"]["CookOptionOut"];
+export type IngredientStock = components["schemas"]["IngredientStockOut"];
 
 // Поза Telegram сесія живе в cookie; 401 означає, що треба увійти (або сесію завершили).
 const authListeners = new Set<() => void>();
@@ -88,6 +89,8 @@ export const api = {
   pantryAdd: (productId: number) => request<Pantry>("POST", `/api/pantry/products/${productId}`, {}),
   pantryRemove: (productId: number, toList: boolean) =>
     request<Pantry>("DELETE", `/api/pantry/products/${productId}?to_list=${toList}`),
+  dishStock: (dishId: number) =>
+    request<(IngredientStock | null)[]>("GET", `/api/pantry/dish/${dishId}`),
   cookFromPantry: () => request<CookOption[]>("GET", "/api/pantry/cook"),
   webLink: () => request<LoginLink>("POST", "/api/auth/link", {}),
   login: (body: { token?: string; code?: string }) => request<void>("POST", "/api/auth/login", body),

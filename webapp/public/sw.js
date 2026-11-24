@@ -1,6 +1,6 @@
 // Service worker Тарілки (лише поза Telegram). Офлайн: оболонка застосунку, переглянуті
 // сторінки API й фото. Нова версія — змінити VERSION; старі кеші видаляються при activate.
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = `tarilka-shell-${VERSION}`; // index.html і хешовані assets
 const API = "tarilka-api"; // GET /api/* — мережа першою, кеш як запасний варіант
 const MEDIA = "tarilka-media"; // фото страв

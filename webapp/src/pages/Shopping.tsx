@@ -43,6 +43,7 @@ export function Shopping() {
   const [busy, setBusy] = useState(false);
   const [showStaples, setShowStaples] = useState(false);
   const [showHome, setShowHome] = useState(false);
+  const [search, setSearch] = useState("");
 
   const load = () => api.shopping().then(setData, setError);
   useEffect(() => {
@@ -85,6 +86,25 @@ export function Shopping() {
     if (await confirm("Очистити весь список покупок?")) run(api.shopClear(false));
   };
 
+  // Пошук: за назвою продукту і за стравою, для якої він потрібен
+  const needle = search.trim().toLowerCase();
+  const match = (l: ShoppingLine) =>
+    !needle || l.name.includes(needle) || l.sources.some((src) => src.toLowerCase().includes(needle));
+  const view = {
+    aisles: data.aisles.map((a) => ({ ...a, lines: a.lines.filter(match) })).filter((a) => a.lines.length),
+    staples: data.staples.filter(match),
+    at_home: data.at_home.filter(match),
+    checked: data.checked.filter(match),
+  };
+  const found = view.aisles.length + view.staples.length + view.at_home.length + view.checked.length;
+  const addSearched = async () => {
+    setBusy(true);
+    await run(api.shopAddText(search.trim()));
+    haptic.success();
+    setSearch("");
+    setBusy(false);
+  };
+
   const empty = !data.aisles.length && !data.staples.length && !data.at_home.length && !data.checked.length;
 
   return (
@@ -120,43 +140,54 @@ export function Shopping() {
         </p>
       )}
 
-      {data.aisles.map((a) => (
+      {!empty && (
+        <input class="input search" type="search" value={search} placeholder="🔍 Знайти в списку"
+          aria-label="Знайти в списку" onInput={(e) => setSearch((e.target as HTMLInputElement).value)} />
+      )}
+      {needle && found === 0 && (
+        <p class="hint">
+          «{search.trim()}» у списку немає.{" "}
+          <button class="linkbtn" onClick={addSearched} disabled={busy}>Додати в список</button>
+        </p>
+      )}
+
+      {view.aisles.map((a) => (
         <section class="section">
           <h2>{a.emoji} {a.label}</h2>
           <ul class="shoplist">{a.lines.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
         </section>
       ))}
 
-      {data.staples.length > 0 && (
+      {view.staples.length > 0 && (
         <section class="section">
           <button class="section__toggle" onClick={() => setShowStaples(!showStaples)}>
-            🧂 Мабуть, є вдома ({data.staples.length}) {showStaples ? "▾" : "▸"}
+            🧂 Мабуть, є вдома ({view.staples.length}) {showStaples || needle ? "▾" : "▸"}
           </button>
-          {showStaples
-            ? <ul class="shoplist">{data.staples.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
-            : <p class="muted small">{data.staples.map((l) => l.name).join(", ")}</p>}
+          {showStaples || needle
+            ? <ul class="shoplist">{view.staples.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
+            : <p class="muted small">{view.staples.map((l) => l.name).join(", ")}</p>}
         </section>
       )}
 
-      {data.at_home.length > 0 && (
+      {view.at_home.length > 0 && (
         <section class="section">
           <button class="section__toggle" onClick={() => setShowHome(!showHome)}>
-            🧊 Уже є вдома ({data.at_home.length}) {showHome ? "▾" : "▸"}
+            🧊 Уже є вдома ({view.at_home.length}) {showHome || needle ? "▾" : "▸"}
           </button>
-          {showHome
-            ? <ul class="shoplist">{data.at_home.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
-            : <p class="muted small">{data.at_home.map((l) => l.name).join(", ")}</p>}
+          {showHome || needle
+            ? <ul class="shoplist">{view.at_home.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
+            : <p class="muted small">{view.at_home.map((l) => l.name).join(", ")}</p>}
         </section>
       )}
 
-      {data.checked.length > 0 && (
+      {view.checked.length > 0 && (
         <section class="section">
           <div class="section__head">
-            <h2>✓ Куплено ({data.checked.length})</h2>
+            <h2>✓ Куплено ({view.checked.length})</h2>
             <button class="linkbtn" onClick={() => run(api.shopClear(true))}>Прибрати</button>
           </div>
           <p class="muted small">Куплене вже в холодильнику 🧊</p>
-          <ul class="shoplist">{data.checked.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
+          <ul class="shoplist">{view.checked.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
         </section>
       )}
 

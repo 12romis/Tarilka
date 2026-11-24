@@ -9,6 +9,7 @@ from app.api.meta import SessionDep
 from app.api.schemas import media_url
 from app.api.shopping import AIDep
 from app.db.models import Product
+from app.services import dishes as dish_svc
 from app.services import pantry, shopping
 
 router = APIRouter(prefix="/api/pantry", tags=["pantry"])
@@ -38,6 +39,12 @@ class CookOptionOut(BaseModel):
     thumb: str | None
     have: list[str]
     missing: list[str]
+
+
+class IngredientStockOut(BaseModel):
+    at_home: bool
+    in_list: bool
+    staple: bool = Field(description="зазвичай є вдома — наявність не відстежується")
 
 
 class PantryTextIn(BaseModel):
@@ -103,4 +110,18 @@ async def cook(member: CurrentMember, session: SessionDep, ai: AIDep) -> list[Co
             missing=o.missing,
         )
         for o in options
+    ]
+
+
+@router.get("/dish/{dish_id}", response_model=list[IngredientStockOut | None])
+async def dish_stock(
+    dish_id: int, member: CurrentMember, session: SessionDep, ai: AIDep
+) -> list[IngredientStockOut | None]:
+    """Позначки біля інгредієнтів страви — за тими ж індексами, що й dish.ingredients."""
+    dish = await dish_svc.get_family_dish(session, member.family_id, dish_id)
+    if dish is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Страву не знайдено")
+    return [
+        IngredientStockOut(at_home=s.at_home, in_list=s.in_list, staple=s.staple) if s else None
+        for s in await pantry.dish_stock(session, ai, dish)
     ]

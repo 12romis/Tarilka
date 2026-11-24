@@ -197,3 +197,35 @@ async def test_voice_goes_to_shopping_list(session, sessionmaker, fake_bot, ctx)
     assert edit.text.startswith("🎙 <i>Купити хліб</i>") and "Додав у список: хліб" in edit.text
     assert await session.scalar(select(func.count()).select_from(ShoppingItem)) == 1
     assert await session.scalar(select(func.count()).select_from(PantryItem)) == 0
+
+
+async def test_dish_stock(session, ctx) -> None:
+    await pantry.add_text(session, None, ctx["igor"], "яйця")
+    await shopping.add_text(session, None, ctx["igor"], "молоко")
+    stock = await pantry.dish_stock(session, None, ctx["omelet"])  # Яйця, молоко, сіль
+    assert [(s.at_home, s.in_list, s.staple) for s in stock] == [
+        (True, False, False),
+        (False, True, False),
+        (False, False, True),
+    ]
+    stock = await pantry.dish_stock(session, None, ctx["fried"])  # яйця, сіль, вода
+    assert stock[2] is None  # воду не купують — без позначки
+
+
+async def test_suggest_only_what_is_at_home(sessionmaker, session, ctx) -> None:
+    app = create_app()
+    app.dependency_overrides[default_ai] = lambda: None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+        body = {"at_home": True, "include_new": True}
+        r = await c.post("/api/suggest", json=body, headers=tma(10))
+        assert r.status_code == 200 and r.json()["total_candidates"] == 0  # холодильник порожній
+
+        await pantry.add_text(session, None, ctx["igor"], "яйця")
+        r = await c.post("/api/suggest", json=body, headers=tma(10))
+        assert [d["title"] for d in r.json()["dishes"]] == ["Яєчня"]  # Омлету бракує молока
+        r = await c.post("/api/suggest", json={"include_new": True}, headers=tma(10))
+        assert r.json()["total_candidates"] == 4  # без фільтра — усі активні
+
+        stock = (await c.get(f"/api/pantry/dish/{ctx['omelet'].id}", headers=tma(10))).json()
+        assert stock[0] == {"at_home": True, "in_list": False, "staple": False}
+        assert (await c.get("/api/pantry/dish/9999", headers=tma(10))).status_code == 404
