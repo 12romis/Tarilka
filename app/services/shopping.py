@@ -312,13 +312,7 @@ async def set_checked(
             )
         )
         if since is not None:  # прибрати лише те, що поклала саме ця відмітка
-            await session.execute(
-                delete(PantryItem).where(
-                    PantryItem.family_id == family_id,
-                    PantryItem.product_id == product_id,
-                    PantryItem.created_at >= since,
-                )
-            )
+            await pantry.undo_add(session, family_id, product_id, since)
     await session.execute(
         update(ShoppingItem)
         .where(ShoppingItem.family_id == family_id, ShoppingItem.product_id == product_id)
@@ -413,7 +407,9 @@ async def load_view(session: AsyncSession, family_id: int) -> ShoppingView:
     ).all()
     at_home = set(
         await session.scalars(
-            select(PantryItem.product_id).where(PantryItem.family_id == family_id)
+            select(PantryItem.product_id).where(
+                PantryItem.family_id == family_id, PantryItem.out_at.is_(None)
+            )
         )
     )
     by_product: dict[int, list] = {}

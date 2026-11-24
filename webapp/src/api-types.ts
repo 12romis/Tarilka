@@ -401,13 +401,56 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add Product */
-        post: operations["add_product_api_pantry_products__product_id__post"];
         /**
-         * Remove Product
-         * @description Закінчилось; to_list=true — одразу в список покупок.
+         * Mark Present
+         * @description Є вдома (знову).
          */
-        delete: operations["remove_product_api_pantry_products__product_id__delete"];
+        post: operations["mark_present_api_pantry_products__product_id__post"];
+        /**
+         * Forget
+         * @description Забути продукт — прибрати зі сторінки зовсім.
+         */
+        delete: operations["forget_api_pantry_products__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pantry/products/{product_id}/out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Out
+         * @description Закінчилось — лишається на сторінці зі статусом.
+         */
+        post: operations["mark_out_api_pantry_products__product_id__out_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pantry/products/{product_id}/to-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * To List
+         * @description У список покупок (без кількості); статус удома не змінюється.
+         */
+        post: operations["to_list_api_pantry_products__product_id__to_list_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -801,10 +844,14 @@ export interface components {
         };
         /** PantryOut */
         PantryOut: {
-            /** Aisles */
-            aisles: components["schemas"]["PantryAisleOut"][];
+            /** Present */
+            present: components["schemas"]["PantryAisleOut"][];
+            /** Out */
+            out: components["schemas"]["PantryAisleOut"][];
             /** Count */
             count: number;
+            /** Out Count */
+            out_count: number;
         };
         /** PantryProductOut */
         PantryProductOut: {
@@ -812,6 +859,11 @@ export interface components {
             product_id: number;
             /** Name */
             name: string;
+            /**
+             * In List
+             * @description уже в списку покупок (не куплено)
+             */
+            in_list: boolean;
         };
         /** PantryTextIn */
         PantryTextIn: {
@@ -1902,7 +1954,7 @@ export interface operations {
             };
         };
     };
-    add_product_api_pantry_products__product_id__post: {
+    mark_present_api_pantry_products__product_id__post: {
         parameters: {
             query?: never;
             header?: {
@@ -1937,11 +1989,79 @@ export interface operations {
             };
         };
     };
-    remove_product_api_pantry_products__product_id__delete: {
+    forget_api_pantry_products__product_id__delete: {
         parameters: {
-            query?: {
-                to_list?: boolean;
+            query?: never;
+            header?: {
+                authorization?: string | null;
             };
+            path: {
+                product_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PantryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_out_api_pantry_products__product_id__out_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PantryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    to_list_api_pantry_products__product_id__to_list_post: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };

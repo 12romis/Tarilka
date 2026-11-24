@@ -60,7 +60,12 @@ async def ctx(session):
 
 
 async def names_in_pantry(session) -> list[str]:
-    return [p.name for p in await pantry.load(session, 1)]
+    """Що є вдома (без «закінчилось»)."""
+    return [x.product.name for x in await pantry.load(session, 1) if x.present]
+
+
+async def names_out(session) -> list[str]:
+    return [x.product.name for x in await pantry.load(session, 1) if not x.present]
 
 
 async def test_add_remove_text_without_ai(session, ctx) -> None:
@@ -68,8 +73,16 @@ async def test_add_remove_text_without_ai(session, ctx) -> None:
     assert [p.name for p in added] == ["яйця", "сир"]  # воду не кладемо
     await pantry.add_text(session, None, ctx["igor"], "яйця")  # повторно — без дубля
     assert sorted(await names_in_pantry(session)) == ["сир", "яйця"]
-    assert await pantry.remove_text(session, None, ctx["igor"], "сир, хліб") == ["сир"]
+    assert await pantry.out_text(session, None, ctx["igor"], "сир, хліб") == ["сир"]
     assert await names_in_pantry(session) == ["яйця"]
+    assert await names_out(session) == ["сир"]  # лишився на сторінці як «закінчилось»
+    assert await pantry.out_text(session, None, ctx["igor"], "сир") == []  # уже закінчився
+    await pantry.add_text(session, None, ctx["igor"], "сир")  # знову є
+    assert sorted(await names_in_pantry(session)) == ["сир", "яйця"]
+    assert await names_out(session) == []
+    cheese = next(x.product for x in await pantry.load(session, 1) if x.product.name == "сир")
+    await pantry.forget(session, 1, cheese.id)
+    assert [x.product.name for x in await pantry.load(session, 1)] == ["яйця"]
 
 
 async def test_add_text_with_ai_groups_by_aisle(session, ctx) -> None:
@@ -121,6 +134,14 @@ async def test_shopping_list_knows_pantry(session, ctx) -> None:
     await shopping.set_checked(session, 1, eggs, False, ctx["igor"])
     assert "яйця" in await names_in_pantry(session)
 
+    # закінчилось → купили (знову є) → зняли відмітку → знову «закінчилось»
+    await pantry.mark_out(session, 1, [eggs])
+    assert (await shopping.load_view(session, 1)).open_count == 3  # яйця знову треба купити
+    await shopping.set_checked(session, 1, eggs, True, ctx["igor"])
+    assert "яйця" in await names_in_pantry(session)
+    await shopping.set_checked(session, 1, eggs, False, ctx["igor"])
+    assert await names_out(session) == ["яйця"]
+
 
 def tma(user_id: int) -> dict[str, str]:
     raw = make_init_data({"id": user_id, "first_name": "T"}, auth_date=int(time.time()))
@@ -134,25 +155,36 @@ async def test_api(sessionmaker, session, ctx) -> None:
         r = await c.post("/api/pantry/items", json={"text": "яйця, сир"}, headers=tma(10))
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data["count"] == 2 and data["aisles"][0]["slug"] == "other"
+        assert data["count"] == 2 and data["out"] == [] and data["present"][0]["slug"] == "other"
 
         cook = (await c.get("/api/pantry/cook", headers=tma(10))).json()
         assert [o["title"] for o in cook] == ["Яєчня", "Омлет", "Лазанья"]  # бракує рівно 3
         assert cook[2]["missing"] == ["фарш", "тісто", "томати"] and cook[0]["thumb"] is None
 
-        cheese = next(i for i in data["aisles"][0]["items"] if i["name"] == "сир")
-        r = await c.delete(
-            f"/api/pantry/products/{cheese['product_id']}?to_list=true", headers=tma(10)
-        )
-        assert r.json()["count"] == 1
+        cheese = next(i for i in data["present"][0]["items"] if i["name"] == "сир")
+        pid = cheese["product_id"]
+        data = (await c.post(f"/api/pantry/products/{pid}/out", headers=tma(10))).json()
+        assert data["count"] == 1 and data["out_count"] == 1
+        assert data["out"][0]["items"] == [{"product_id": pid, "name": "сир", "in_list": False}]
+
+        data = (await c.post(f"/api/pantry/products/{pid}/to-list", headers=tma(10))).json()
+        assert data["out"][0]["items"][0]["in_list"] is True  # статус удома не змінився
         listed = (await c.get("/api/shopping", headers=tma(10))).json()
         assert [x["name"] for x in listed["aisles"][0]["lines"]] == ["сир"]
+        await c.post(f"/api/pantry/products/{pid}/to-list", headers=tma(10))  # без дубля
+        listed = (await c.get("/api/shopping", headers=tma(10))).json()
+        assert listed["open_count"] == 1
 
-        r = await c.post(f"/api/pantry/products/{cheese['product_id']}", headers=tma(10))
-        assert r.json()["count"] == 2
+        data = (await c.post(f"/api/pantry/products/{pid}", headers=tma(10))).json()
+        assert data["count"] == 2 and data["out_count"] == 0  # знову є
         listed = (await c.get("/api/shopping", headers=tma(10))).json()
         assert [x["name"] for x in listed["at_home"]] == ["сир"] and listed["open_count"] == 0
+
+        data = (await c.delete(f"/api/pantry/products/{pid}", headers=tma(10))).json()
+        assert data["count"] == 1 and data["out_count"] == 0  # забули
         assert (await c.post("/api/pantry/products/9999", headers=tma(10))).status_code == 404
+        r = await c.post("/api/pantry/products/9999/to-list", headers=tma(10))
+        assert r.status_code == 404
 
 
 async def test_bot(sessionmaker, session, fake_bot, ctx) -> None:
@@ -172,6 +204,7 @@ async def test_bot(sessionmaker, session, fake_bot, ctx) -> None:
     text = fake_bot.session.sent()[-1].text
     assert text.startswith("🧊 <b>Вдома є</b> (1)") and "• яйця" in text
     assert "• Яєчня — є все" in text and "• Омлет — бракує: молоко" in text
+    assert "⭕ <i>Закінчилось:</i> &lt;сир&gt;" in text
 
 
 async def test_voice_goes_to_shopping_list(session, sessionmaker, fake_bot, ctx) -> None:

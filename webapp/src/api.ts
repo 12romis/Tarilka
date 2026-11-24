@@ -17,6 +17,8 @@ export type WebSession = components["schemas"]["SessionOut"];
 export type Shopping = components["schemas"]["ShoppingOut"];
 export type ShoppingLine = components["schemas"]["LineOut"];
 export type Pantry = components["schemas"]["PantryOut"];
+export type PantryAisle = components["schemas"]["PantryAisleOut"];
+export type PantryProduct = components["schemas"]["PantryProductOut"];
 export type CookOption = components["schemas"]["CookOptionOut"];
 export type IngredientStock = components["schemas"]["IngredientStockOut"];
 
@@ -86,9 +88,13 @@ export const api = {
     request<Shopping>("DELETE", `/api/shopping?only_checked=${onlyChecked}`),
   pantry: () => request<Pantry>("GET", "/api/pantry"),
   pantryAddText: (text: string) => request<Pantry>("POST", "/api/pantry/items", { text }),
-  pantryAdd: (productId: number) => request<Pantry>("POST", `/api/pantry/products/${productId}`, {}),
-  pantryRemove: (productId: number, toList: boolean) =>
-    request<Pantry>("DELETE", `/api/pantry/products/${productId}?to_list=${toList}`),
+  pantryPresent: (productId: number) =>
+    request<Pantry>("POST", `/api/pantry/products/${productId}`, {}),
+  pantryOut: (productId: number) =>
+    request<Pantry>("POST", `/api/pantry/products/${productId}/out`, {}),
+  pantryToList: (productId: number) =>
+    request<Pantry>("POST", `/api/pantry/products/${productId}/to-list`, {}),
+  pantryForget: (productId: number) => request<Pantry>("DELETE", `/api/pantry/products/${productId}`),
   dishStock: (dishId: number) =>
     request<(IngredientStock | null)[]>("GET", `/api/pantry/dish/${dishId}`),
   cookFromPantry: () => request<CookOption[]>("GET", "/api/pantry/cook"),

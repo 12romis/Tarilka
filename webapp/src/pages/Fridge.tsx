@@ -1,8 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
-import { api, type CookOption, type Pantry } from "../api";
+import { api, type CookOption, type Pantry, type PantryAisle, type PantryProduct } from "../api";
 import { ErrorBox, Loader } from "../components/ui";
 import { navigate } from "../router";
-import { alertMsg, haptic } from "../tg";
+import { alertMsg, confirm, haptic } from "../tg";
 
 const COOK_SHOWN = 5;
 
@@ -26,6 +26,46 @@ function CookRow({ o, onShop }: { o: CookOption; onShop: (o: CookOption) => void
           onClick={() => onShop(o)}>🛒</button>
       )}
     </li>
+  );
+}
+
+type Act = (p: PantryProduct) => void;
+
+/** Продукт, що є: дотик — «закінчилось». 🛒 — лише позначка, що вже в списку покупок. */
+function PresentChip({ p, onOut }: { p: PantryProduct; onOut: Act }) {
+  return (
+    <button class="chip pchip" onClick={() => onOut(p)} aria-label={`${p.name}: є вдома. Натисни, якщо закінчилось`}>
+      {p.name}
+      {p.in_list && <span class="pchip__mark" title="уже в списку покупок"> 🛒</span>}
+    </button>
+  );
+}
+
+/** Закінчилось: дотик — «знову є»; «＋ У список» або позначка «у списку»; × — забути. */
+function OutChip({ p, onBack, onList, onForget }: { p: PantryProduct; onBack: Act; onList: Act; onForget: Act }) {
+  return (
+    <span class="chip chip--static pchip pchip--out">
+      <button class="pchip__name" onClick={() => onBack(p)} aria-label={`${p.name}: закінчилось. Натисни, якщо знову є`}>
+        {p.name}
+      </button>
+      {p.in_list
+        ? <span class="pchip__listed">🛒 у списку</span>
+        : <button class="pchip__add" onClick={() => onList(p)} aria-label={`${p.name} — у список покупок`}>＋ У список</button>}
+      <button class="chip__x" onClick={() => onForget(p)} aria-label={`Забути ${p.name}`} title="Забути продукт">×</button>
+    </span>
+  );
+}
+
+function Aisles({ aisles, render }: { aisles: PantryAisle[]; render: (p: PantryProduct) => preact.JSX.Element }) {
+  return (
+    <>
+      {aisles.map((a) => (
+        <div class="paisle">
+          <div class="paisle__label">{a.emoji} {a.label}</div>
+          <div class="chips">{a.items.map(render)}</div>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -72,9 +112,18 @@ export function Fridge() {
     }
     setBusy(false);
   };
-  const remove = (productId: number, toList: boolean) => {
+  const act = (call: (id: number) => Promise<Pantry>) => (p: PantryProduct) => {
     haptic.select();
-    run(api.pantryRemove(productId, toList));
+    run(call(p.product_id));
+  };
+  const markOut = act(api.pantryOut);
+  const markBack = act(api.pantryPresent);
+  const toList = (p: PantryProduct) => {
+    act(api.pantryToList)(p);
+    haptic.success();
+  };
+  const forget = async (p: PantryProduct) => {
+    if (await confirm(`Забути «${p.name}»? Продукт зникне зі сторінки.`)) act(api.pantryForget)(p);
   };
   const shopMissing = async (o: CookOption) => {
     try {
@@ -91,7 +140,7 @@ export function Fridge() {
 
   return (
     <main class="page">
-      <h1>🧊 Вдома{data.count ? ` · ${data.count}` : ""}</h1>
+      <h1>🧊 Вдома</h1>
 
       <form class="row" onSubmit={add}>
         <input class="input" value={text} placeholder="яйця, сир, помідори" aria-label="Що є вдома"
@@ -101,12 +150,29 @@ export function Fridge() {
         </button>
       </form>
 
-      {data.count === 0 && (
+      {data.count === 0 && data.out_count === 0 && (
         <p class="hint">
           Познач, що є в холодильнику й шафі, — без кількостей. Покажу, що з цього можна приготувати,
           а в списку покупок відкладу те, що вже є. Куплене зі списку потрапляє сюди саме. Боту можна
           написати: <i>є вдома яйця, сир</i> або <i>закінчилось молоко</i>.
         </p>
+      )}
+
+      {data.count > 0 && (
+        <section class="section">
+          <h2>✅ Є вдома · {data.count}</h2>
+          <p class="muted small">Натисни на продукт, коли він закінчиться.</p>
+          <Aisles aisles={data.present} render={(p) => <PresentChip p={p} onOut={markOut} />} />
+        </section>
+      )}
+
+      {data.out_count > 0 && (
+        <section class="section">
+          <h2>⭕ Закінчилось · {data.out_count}</h2>
+          <p class="muted small">Натисни на назву, якщо знову є; × — забути продукт.</p>
+          <Aisles aisles={data.out}
+            render={(p) => <OutChip p={p} onBack={markBack} onList={toList} onForget={forget} />} />
+        </section>
       )}
 
       {data.count > 0 && (
@@ -125,27 +191,6 @@ export function Fridge() {
             </button>
           )}
         </section>
-      )}
-
-      {data.aisles.map((a) => (
-        <section class="section">
-          <h2>{a.emoji} {a.label}</h2>
-          <div class="chips">
-            {a.items.map((it) => (
-              <span class="chip chip--static pantry">
-                {it.name}
-                <button class="chip__act" aria-label={`${it.name} закінчилось — у список покупок`}
-                  title="Закінчилось — у список" onClick={() => remove(it.product_id, true)}>🛒</button>
-                <button class="chip__x" aria-label={`Прибрати ${it.name}`}
-                  title="Прибрати" onClick={() => remove(it.product_id, false)}>×</button>
-              </span>
-            ))}
-          </div>
-        </section>
-      ))}
-
-      {data.count > 0 && (
-        <p class="muted small">🛒 — закінчилось, додати в список покупок; × — просто прибрати.</p>
       )}
     </main>
   );

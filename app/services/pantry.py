@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +28,8 @@ async def add(
     at: datetime | None = None,
     commit: bool = True,
 ) -> None:
-    """У холодильник; повторне додавання нічого не змінює. «Не купують» (вода) не кладемо."""
+    """Позначити «є вдома»: новий продукт або той, що закінчився. «Не купують» (вода) — ні."""
+    now = at or datetime.now(UTC)
     ids = list(
         await session.scalars(
             select(Product.id).where(
@@ -39,64 +40,113 @@ async def add(
         )
     )
     for pid in ids:
+        stmt = insert(PantryItem).values(
+            family_id=member.family_id, product_id=pid, added_by=member.id, created_at=now
+        )
         await session.execute(
-            insert(PantryItem)
-            .values(
-                family_id=member.family_id,
-                product_id=pid,
-                added_by=member.id,
-                created_at=at or datetime.now(UTC),
+            stmt.on_conflict_do_update(
+                index_elements=["family_id", "product_id"],
+                set_={"out_at": None, "restored_at": now},
+                where=PantryItem.out_at.is_not(None),  # те, що вже є, не чіпаємо
             )
-            .on_conflict_do_nothing(index_elements=["family_id", "product_id"])
         )
     if commit:
         await session.commit()
 
 
-async def remove(session: AsyncSession, family_id: int, product_ids: list[int]) -> list[int]:
-    """Прибрати з холодильника; повертає id, які справді там були."""
+async def undo_add(session: AsyncSession, family_id: int, product_id: int, since: datetime) -> None:
+    """Скасувати `add` з моменту since (зняли відмітку «куплено»): новий — забути, закінчений —
+    знову «закінчилось». Те, що вже було вдома раніше, не чіпаємо."""
+    where = (PantryItem.family_id == family_id, PantryItem.product_id == product_id)
+    await session.execute(delete(PantryItem).where(*where, PantryItem.created_at >= since))
+    await session.execute(
+        update(PantryItem)
+        .where(*where, PantryItem.restored_at >= since)
+        .values(out_at=datetime.now(UTC), restored_at=None)
+    )
+
+
+async def mark_out(session: AsyncSession, family_id: int, product_ids: list[int]) -> list[int]:
+    """Закінчилось (лишається на сторінці зі статусом). Повертає id, що справді були вдома."""
     result = await session.execute(
-        delete(PantryItem)
-        .where(PantryItem.family_id == family_id, PantryItem.product_id.in_(product_ids))
+        update(PantryItem)
+        .where(
+            PantryItem.family_id == family_id,
+            PantryItem.product_id.in_(product_ids),
+            PantryItem.out_at.is_(None),
+        )
+        .values(out_at=datetime.now(UTC))
         .returning(PantryItem.product_id)
     )
-    removed = list(result.scalars())
+    changed = list(result.scalars())
     await session.commit()
-    return removed
+    return changed
+
+
+async def forget(session: AsyncSession, family_id: int, product_id: int) -> None:
+    """Прибрати продукт зі сторінки зовсім."""
+    await session.execute(
+        delete(PantryItem).where(
+            PantryItem.family_id == family_id, PantryItem.product_id == product_id
+        )
+    )
+    await session.commit()
 
 
 async def add_text(
     session: AsyncSession, ai: AIClient | None, member: Member, text: str
 ) -> list[Product]:
-    """«молоко, яйця і сир» → у холодильник. Повертає розпізнані продукти."""
+    """«молоко, яйця і сир» → «є вдома». Повертає розпізнані продукти."""
     products = [p for p, _ in await shopping.parse_products(session, ai, member.family_id, text)]
     await add(session, member, [p.id for p in products])
     return [p for p in products if not p.skip]
 
 
-async def remove_text(
+async def out_text(
     session: AsyncSession, ai: AIClient | None, member: Member, text: str
 ) -> list[str]:
-    """«закінчилось молоко» → прибрати. Повертає назви, які справді були в холодильнику."""
+    """«закінчилось молоко» → «закінчилось». Повертає назви, які справді були вдома."""
     products = [p for p, _ in await shopping.parse_products(session, ai, member.family_id, text)]
-    removed = set(await remove(session, member.family_id, [p.id for p in products]))
-    return [p.name for p in products if p.id in removed]
+    changed = set(await mark_out(session, member.family_id, [p.id for p in products]))
+    return [p.name for p in products if p.id in changed]
 
 
-async def load(session: AsyncSession, family_id: int) -> list[Product]:
-    """Вміст холодильника: за відділами магазину, далі за абеткою."""
-    products = list(
+@dataclass
+class PantryLine:
+    product: Product
+    present: bool
+    in_list: bool  # некуплене в списку покупок
+
+
+async def in_list_ids(session: AsyncSession, family_id: int) -> set[int]:
+    return set(
         await session.scalars(
-            select(Product)
+            select(ShoppingItem.product_id).where(
+                ShoppingItem.family_id == family_id, ShoppingItem.checked_at.is_(None)
+            )
+        )
+    )
+
+
+async def load(session: AsyncSession, family_id: int) -> list[PantryLine]:
+    """Усі продукти сторінки «Вдома»: за відділами магазину, далі за абеткою."""
+    rows = (
+        await session.execute(
+            select(Product, PantryItem.out_at)
             .join(PantryItem, PantryItem.product_id == Product.id)
             .where(PantryItem.family_id == family_id)
         )
-    )
+    ).all()
+    listed = await in_list_ids(session, family_id)
+    lines = [PantryLine(p, out_at is None, p.id in listed) for p, out_at in rows]
     order = list(AISLES)
-    products.sort(
-        key=lambda p: (order.index(p.aisle) if p.aisle in AISLES else 99, uk_sort_key(p.name))
+    lines.sort(
+        key=lambda x: (
+            order.index(x.product.aisle) if x.product.aisle in AISLES else 99,
+            uk_sort_key(x.product.name),
+        )
     )
-    return products
+    return lines
 
 
 # --- Що приготувати з наявного -----------------------------------------------------------------
@@ -115,7 +165,9 @@ class CookOption:
 async def _at_home(session: AsyncSession, family_id: int) -> set[int]:
     return set(
         await session.scalars(
-            select(PantryItem.product_id).where(PantryItem.family_id == family_id)
+            select(PantryItem.product_id).where(
+                PantryItem.family_id == family_id, PantryItem.out_at.is_(None)
+            )
         )
     )
 
@@ -223,13 +275,7 @@ async def dish_stock(
     products, _ = await shopping.canonicalize(session, ai, dish.family_id, [n for n in raws if n])
     await session.commit()
     at_home = await _at_home(session, dish.family_id)
-    in_list = set(
-        await session.scalars(
-            select(ShoppingItem.product_id).where(
-                ShoppingItem.family_id == dish.family_id, ShoppingItem.checked_at.is_(None)
-            )
-        )
-    )
+    in_list = await in_list_ids(session, dish.family_id)
     out: list[IngredientStock | None] = []
     for raw in raws:
         p = products.get(raw_key(raw)) if raw and raw_key(raw) else None

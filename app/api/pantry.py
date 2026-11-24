@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/pantry", tags=["pantry"])
 class PantryProductOut(BaseModel):
     product_id: int
     name: str
+    in_list: bool = Field(description="уже в списку покупок (не куплено)")
 
 
 class PantryAisleOut(BaseModel):
@@ -28,8 +29,10 @@ class PantryAisleOut(BaseModel):
 
 
 class PantryOut(BaseModel):
-    aisles: list[PantryAisleOut]
-    count: int
+    present: list[PantryAisleOut]  # є вдома
+    out: list[PantryAisleOut]  # закінчилось
+    count: int  # скільки є вдома
+    out_count: int
 
 
 class CookOptionOut(BaseModel):
@@ -51,15 +54,35 @@ class PantryTextIn(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
-async def _view(session, member) -> PantryOut:
+def _aisles(lines: list[pantry.PantryLine]) -> list[PantryAisleOut]:
     aisles: dict[str, PantryAisleOut] = {}
-    products = await pantry.load(session, member.family_id)
-    for p in products:
+    for line in lines:
+        p = line.product
         slug = p.aisle if p.aisle in shopping.AISLES else "other"
         emoji, label = shopping.AISLES[slug]
         aisles.setdefault(slug, PantryAisleOut(slug=slug, emoji=emoji, label=label, items=[]))
-        aisles[slug].items.append(PantryProductOut(product_id=p.id, name=p.name))
-    return PantryOut(aisles=list(aisles.values()), count=len(products))
+        aisles[slug].items.append(
+            PantryProductOut(product_id=p.id, name=p.name, in_list=line.in_list)
+        )
+    return list(aisles.values())
+
+
+async def _view(session, member) -> PantryOut:
+    lines = await pantry.load(session, member.family_id)
+    present = [line for line in lines if line.present]
+    out = [line for line in lines if not line.present]
+    return PantryOut(
+        present=_aisles(present), out=_aisles(out), count=len(present), out_count=len(out)
+    )
+
+
+async def _product_or_404(session, member, product_id: int) -> int:
+    found = await session.scalar(
+        select(Product.id).where(Product.id == product_id, Product.family_id == member.family_id)
+    )
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Продукт не знайдено")
+    return found
 
 
 @router.get("", response_model=PantryOut)
@@ -76,24 +99,30 @@ async def add_items(
 
 
 @router.post("/products/{product_id}", response_model=PantryOut)
-async def add_product(product_id: int, member: CurrentMember, session: SessionDep) -> PantryOut:
-    found = await session.scalar(
-        select(Product.id).where(Product.id == product_id, Product.family_id == member.family_id)
-    )
-    if found is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Продукт не знайдено")
-    await pantry.add(session, member, [product_id])
+async def mark_present(product_id: int, member: CurrentMember, session: SessionDep) -> PantryOut:
+    """Є вдома (знову)."""
+    await pantry.add(session, member, [await _product_or_404(session, member, product_id)])
+    return await _view(session, member)
+
+
+@router.post("/products/{product_id}/out", response_model=PantryOut)
+async def mark_out(product_id: int, member: CurrentMember, session: SessionDep) -> PantryOut:
+    """Закінчилось — лишається на сторінці зі статусом."""
+    await pantry.mark_out(session, member.family_id, [product_id])
+    return await _view(session, member)
+
+
+@router.post("/products/{product_id}/to-list", response_model=PantryOut)
+async def to_list(product_id: int, member: CurrentMember, session: SessionDep) -> PantryOut:
+    """У список покупок (без кількості); статус удома не змінюється."""
+    await shopping.add_product(session, member, await _product_or_404(session, member, product_id))
     return await _view(session, member)
 
 
 @router.delete("/products/{product_id}", response_model=PantryOut)
-async def remove_product(
-    product_id: int, member: CurrentMember, session: SessionDep, to_list: bool = False
-) -> PantryOut:
-    """Закінчилось; to_list=true — одразу в список покупок."""
-    removed = await pantry.remove(session, member.family_id, [product_id])
-    if removed and to_list:
-        await shopping.add_product(session, member, product_id)
+async def forget(product_id: int, member: CurrentMember, session: SessionDep) -> PantryOut:
+    """Забути продукт — прибрати зі сторінки зовсім."""
+    await pantry.forget(session, member.family_id, product_id)
     return await _view(session, member)
 
 

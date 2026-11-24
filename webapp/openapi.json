@@ -2071,8 +2071,9 @@
     "tags": [
      "pantry"
     ],
-    "summary": "Add Product",
-    "operationId": "add_product_api_pantry_products__product_id__post",
+    "summary": "Mark Present",
+    "description": "Є вдома (знову).",
+    "operationId": "mark_present_api_pantry_products__product_id__post",
     "parameters": [
      {
       "name": "product_id",
@@ -2143,9 +2144,9 @@
     "tags": [
      "pantry"
     ],
-    "summary": "Remove Product",
-    "description": "Закінчилось; to_list=true — одразу в список покупок.",
-    "operationId": "remove_product_api_pantry_products__product_id__delete",
+    "summary": "Forget",
+    "description": "Забути продукт — прибрати зі сторінки зовсім.",
+    "operationId": "forget_api_pantry_products__product_id__delete",
     "parameters": [
      {
       "name": "product_id",
@@ -2157,13 +2158,153 @@
       }
      },
      {
-      "name": "to_list",
-      "in": "query",
+      "name": "authorization",
+      "in": "header",
       "required": false,
       "schema": {
-       "type": "boolean",
-       "default": false,
-       "title": "To List"
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PantryOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/pantry/products/{product_id}/out": {
+   "post": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Mark Out",
+    "description": "Закінчилось — лишається на сторінці зі статусом.",
+    "operationId": "mark_out_api_pantry_products__product_id__out_post",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PantryOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/pantry/products/{product_id}/to-list": {
+   "post": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "To List",
+    "description": "У список покупок (без кількості); статус удома не змінюється.",
+    "operationId": "to_list_api_pantry_products__product_id__to_list_post",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Product Id"
       }
      },
      {
@@ -3600,22 +3741,35 @@
    },
    "PantryOut": {
     "properties": {
-     "aisles": {
+     "present": {
       "items": {
        "$ref": "#/components/schemas/PantryAisleOut"
       },
       "type": "array",
-      "title": "Aisles"
+      "title": "Present"
+     },
+     "out": {
+      "items": {
+       "$ref": "#/components/schemas/PantryAisleOut"
+      },
+      "type": "array",
+      "title": "Out"
      },
      "count": {
       "type": "integer",
       "title": "Count"
+     },
+     "out_count": {
+      "type": "integer",
+      "title": "Out Count"
      }
     },
     "type": "object",
     "required": [
-     "aisles",
-     "count"
+     "present",
+     "out",
+     "count",
+     "out_count"
     ],
     "title": "PantryOut"
    },
@@ -3628,12 +3782,18 @@
      "name": {
       "type": "string",
       "title": "Name"
+     },
+     "in_list": {
+      "type": "boolean",
+      "title": "In List",
+      "description": "уже в списку покупок (не куплено)"
      }
     },
     "type": "object",
     "required": [
      "product_id",
-     "name"
+     "name",
+     "in_list"
     ],
     "title": "PantryProductOut"
    },

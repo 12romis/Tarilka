@@ -33,17 +33,24 @@ def pantry_request(text: str) -> tuple[PantryAction, str] | None:
 
 
 async def render_pantry(session: AsyncSession, ai: AIClient | None, member: Member) -> str:
-    products = await pantry.load(session, member.family_id)
-    if not products:
-        return texts.PANTRY_EMPTY
-    out = [texts.PANTRY_HEADER.format(n=len(products))]
+    lines = await pantry.load(session, member.family_id)
+    present = [line.product for line in lines if line.present]
+    if not present:
+        out = [texts.PANTRY_EMPTY]
+    else:
+        out = [texts.PANTRY_HEADER.format(n=len(present))]
     aisle = None
-    for p in products:
+    for p in present:
         if p.aisle != aisle:
             aisle = p.aisle
             emoji, label = shopping.AISLES.get(aisle, shopping.AISLES["other"])
             out.append(f"\n<b>{emoji} {label}</b>")
         out.append(f"• {escape(p.name)}")
+    if gone := [line for line in lines if not line.present]:
+        names = ", ".join(escape(x.product.name) + (" 🛒" if x.in_list else "") for x in gone)
+        out.append("\n" + texts.PANTRY_OUT.format(names=names))
+    if not present:
+        return "\n".join(out)
     options = await pantry.cook_options(session, ai, member.family_id, limit=COOK_IN_CHAT)
     out.append("")
     if not options:
@@ -70,7 +77,7 @@ async def pantry_reply(
         if not products:
             return texts.PANTRY_NOTHING
         return texts.PANTRY_ADDED.format(names=escape(", ".join(p.name for p in products)))
-    removed = await pantry.remove_text(session, ai, member, what)
+    removed = await pantry.out_text(session, ai, member, what)
     if not removed:
         return texts.PANTRY_NOT_THERE
     return texts.PANTRY_REMOVED.format(names=escape(", ".join(removed)))

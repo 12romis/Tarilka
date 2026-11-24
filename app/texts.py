@@ -221,8 +221,9 @@ PANTRY_EMPTY = (
     "Куплене зі списку покупок потрапляє сюди саме."
 )
 PANTRY_ADDED = "🧊 Поклав у холодильник: {names}."
-PANTRY_REMOVED = "🧊 Прибрав з холодильника: {names}."
-PANTRY_NOT_THERE = "🧊 Такого в холодильнику й не було."
+PANTRY_REMOVED = "⭕ Позначив, що закінчилось: {names}. Докупити — кнопкою на сторінці «Вдома»."
+PANTRY_NOT_THERE = "🧊 Цього й так не було вдома."
+PANTRY_OUT = "⭕ <i>Закінчилось:</i> {names}"
 PANTRY_NOTHING = "Не зрозумів, що саме. Спробуй: є вдома молоко, яйця"
 PANTRY_COOK_HEADER = "🍳 <b>Можна приготувати</b>"
 PANTRY_COOK_READY = "• {title} — є все"

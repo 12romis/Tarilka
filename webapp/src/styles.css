@@ -197,8 +197,6 @@ span.star { cursor: default; }
 .chip__x { border: 0; background: none; color: var(--hint); font-size: 18px; line-height: 1; padding: 0 0 0 6px; cursor: pointer; }
 
 /* Холодильник */
-.pantry { display: inline-flex; align-items: center; gap: 2px; padding-right: 8px; }
-.chip__act { border: 0; background: none; font-size: 15px; line-height: 1; padding: 0 2px 0 8px; cursor: pointer; opacity: .75; }
 .cooklist { list-style: none; padding: 0; margin: 0 0 6px; }
 .cook { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--bg2); }
 .cook__link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 0; color: inherit; text-decoration: none; }
@@ -211,3 +209,11 @@ span.star { cursor: default; }
 .iconbtn { border: 0; background: var(--bg2); border-radius: 10px; width: 40px; height: 40px; font-size: 18px; cursor: pointer; flex: 0 0 40px; }
 .search { width: 100%; margin: 4px 0 4px; }
 .stockmark { margin-left: 6px; font-size: 13px; white-space: nowrap; }
+.paisle { margin: 6px 0 4px; }
+.paisle__label { font-size: 13px; color: var(--hint); margin: 6px 0 4px; }
+.pchip { font: inherit; font-size: 14px; color: inherit; }
+.pchip__mark { font-size: 12px; }
+.pchip--out { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 12px; background: transparent; border: 1.5px dashed var(--hint); }
+.pchip__name { border: 0; background: none; font: inherit; color: var(--hint); padding: 0; cursor: pointer; }
+.pchip__add { border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-text); font: inherit; font-size: 13px; padding: 4px 10px; cursor: pointer; }
+.pchip__listed { font-size: 12px; color: var(--hint); }
