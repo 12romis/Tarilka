@@ -25,6 +25,7 @@ class LineOut(BaseModel):
     name: str
     staple: bool
     checked: bool
+    at_home: bool
     amounts: list[AmountOut]
     to_taste: bool = Field(description="є рядки без кількості")
     sources: list[str]
@@ -46,6 +47,7 @@ class ListedDishOut(BaseModel):
 class ShoppingOut(BaseModel):
     aisles: list[AisleOut]  # некуплене, без «зазвичай є вдома»
     staples: list[LineOut]  # некуплене, що зазвичай є вдома
+    at_home: list[LineOut]  # некуплене, що вже є в холодильнику
     checked: list[LineOut]
     dishes: list[ListedDishOut]
     open_count: int
@@ -70,6 +72,7 @@ def _line(line: shopping.Line) -> LineOut:
         name=line.name,
         staple=line.staple,
         checked=line.checked,
+        at_home=line.at_home,
         amounts=[AmountOut(qty=q, unit=u) for q, u in line.parts],
         to_taste=line.no_qty,
         sources=line.sources,
@@ -78,10 +81,12 @@ def _line(line: shopping.Line) -> LineOut:
 
 def render(view: shopping.ShoppingView) -> ShoppingOut:
     aisles: dict[str, AisleOut] = {}
-    staples, checked = [], []
+    staples, at_home, checked = [], [], []
     for line in view.lines:
         if line.checked:
             checked.append(_line(line))
+        elif line.at_home:
+            at_home.append(_line(line))
         elif line.staple:
             staples.append(_line(line))
         else:
@@ -93,6 +98,7 @@ def render(view: shopping.ShoppingView) -> ShoppingOut:
     return ShoppingOut(
         aisles=list(aisles.values()),
         staples=staples,
+        at_home=at_home,
         checked=checked,
         dishes=[
             ListedDishOut(dish_id=d.dish_id, title=d.title, servings=d.servings)
@@ -140,7 +146,7 @@ async def add_items(
 async def check(
     product_id: int, body: CheckIn, member: CurrentMember, session: SessionDep
 ) -> ShoppingOut:
-    await shopping.set_checked(session, member.family_id, product_id, body.checked)
+    await shopping.set_checked(session, member.family_id, product_id, body.checked, member)
     return await _view(session, member)
 
 

@@ -8,6 +8,7 @@ import logging
 import shutil
 import tempfile
 from datetime import timedelta
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -22,14 +23,15 @@ from app import texts
 from app.ai.client import AIClient, AIError, build_ai_client
 from app.ai.pricing import total_cost
 from app.bot.cards import render_job
+from app.bot.handlers.pantry import household_reply
 from app.bot.keyboards import DraftCb
 from app.bot.router import build_bot
 from app.bot.util import caption, safe_edit
 from app.bot.views import existing_dish_message
 from app.config import Settings, get_settings
-from app.db.models import ImportJob, JobKind, JobStatus, Member
+from app.db.models import ImportJob, JobKind, JobStatus, Member, SourceType
 from app.db.session import dispose_engine, get_sessionmaker
-from app.importers.base import DuplicateUrl, ImportContext, PermanentImportError
+from app.importers.base import DuplicateUrl, HouseholdText, ImportContext, PermanentImportError
 from app.importers.registry import IMPORTERS
 from app.services import dishes as dish_svc
 from app.services import drafts as dr
@@ -108,6 +110,10 @@ class Worker:
                 await session.rollback()
                 await self._on_duplicate(session, job_id, dup.dish_id)
                 return
+            except HouseholdText as h:
+                await session.rollback()
+                await self._on_household(session, job_id, h.transcript)
+                return
             except Exception as exc:
                 await session.rollback()
                 await self._on_error(session, job_id, exc)
@@ -162,6 +168,29 @@ class Worker:
         if dish is None:
             return
         await self._edit(job, *await existing_dish_message(session, dish))
+
+    async def _on_household(self, session: AsyncSession, job_id: int, transcript: str) -> None:
+        """«купити молоко» голосом — у список покупок чи холодильник, як текстом."""
+        job = await session.get(ImportJob, job_id)
+        assert job is not None
+        member = await session.get(Member, job.created_by) if job.created_by else None
+        found = None
+        if member is not None:
+            private = (job.tg_chat_id or 0) > 0  # id особистого чату = id користувача (> 0)
+            found = await household_reply(session, member, self.ai, transcript, private=private)
+        result = dr.new_result(
+            [], source_text=transcript, source_type=SourceType.voice, transcript=transcript
+        )
+        await jobs.complete(session, job, result)
+        reply, markup = found or (texts.NO_DISHES, None)
+        text = texts.VOICE_HEARD.format(transcript=escape(transcript)) + "\n\n" + reply
+        if job.tg_chat_id and job.tg_message_id:
+            try:
+                await safe_edit(
+                    self.bot, job.tg_chat_id, job.tg_message_id, text, markup, parse_mode="HTML"
+                )
+            except Exception:
+                log.exception("job %s: не вдалося оновити повідомлення", job.id)
 
     async def _on_error(self, session: AsyncSession, job_id: int, exc: BaseException) -> None:
         job = await session.get(ImportJob, job_id)  # після rollback об'єкт перечитується

@@ -1925,6 +1925,372 @@
      }
     }
    }
+  },
+  "/api/pantry": {
+   "get": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Get Pantry",
+    "operationId": "get_pantry_api_pantry_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PantryOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/pantry/items": {
+   "post": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Add Items",
+    "operationId": "add_items_api_pantry_items_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PantryTextIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PantryOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/pantry/products/{product_id}": {
+   "post": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Add Product",
+    "operationId": "add_product_api_pantry_products__product_id__post",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PantryOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Remove Product",
+    "description": "Закінчилось; to_list=true — одразу в список покупок.",
+    "operationId": "remove_product_api_pantry_products__product_id__delete",
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "to_list",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "To List"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PantryOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/pantry/cook": {
+   "get": {
+    "tags": [
+     "pantry"
+    ],
+    "summary": "Cook",
+    "operationId": "cook_api_pantry_cook_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "tarilka_session",
+      "in": "cookie",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tarilka Session"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/CookOptionOut"
+         },
+         "title": "Response Cook Api Pantry Cook Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -2090,6 +2456,57 @@
      "note"
     ],
     "title": "CookLogOut"
+   },
+   "CookOptionOut": {
+    "properties": {
+     "dish_id": {
+      "type": "integer",
+      "title": "Dish Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "thumb": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Thumb"
+     },
+     "have": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Have"
+     },
+     "missing": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Missing"
+     }
+    },
+    "type": "object",
+    "required": [
+     "dish_id",
+     "title",
+     "status",
+     "thumb",
+     "have",
+     "missing"
+    ],
+    "title": "CookOptionOut"
    },
    "CookedIn": {
     "properties": {
@@ -2792,6 +3209,10 @@
       "type": "boolean",
       "title": "Checked"
      },
+     "at_home": {
+      "type": "boolean",
+      "title": "At Home"
+     },
      "amounts": {
       "items": {
        "$ref": "#/components/schemas/AmountOut"
@@ -2818,6 +3239,7 @@
      "name",
      "staple",
      "checked",
+     "at_home",
      "amounts",
      "to_taste",
      "sources"
@@ -3035,6 +3457,91 @@
     ],
     "title": "MetaOut"
    },
+   "PantryAisleOut": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "emoji": {
+      "type": "string",
+      "title": "Emoji"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/PantryProductOut"
+      },
+      "type": "array",
+      "title": "Items"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "emoji",
+     "label",
+     "items"
+    ],
+    "title": "PantryAisleOut"
+   },
+   "PantryOut": {
+    "properties": {
+     "aisles": {
+      "items": {
+       "$ref": "#/components/schemas/PantryAisleOut"
+      },
+      "type": "array",
+      "title": "Aisles"
+     },
+     "count": {
+      "type": "integer",
+      "title": "Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "aisles",
+     "count"
+    ],
+    "title": "PantryOut"
+   },
+   "PantryProductOut": {
+    "properties": {
+     "product_id": {
+      "type": "integer",
+      "title": "Product Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "product_id",
+     "name"
+    ],
+    "title": "PantryProductOut"
+   },
+   "PantryTextIn": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "PantryTextIn"
+   },
    "SessionOut": {
     "properties": {
      "id": {
@@ -3093,6 +3600,13 @@
       "type": "array",
       "title": "Staples"
      },
+     "at_home": {
+      "items": {
+       "$ref": "#/components/schemas/LineOut"
+      },
+      "type": "array",
+      "title": "At Home"
+     },
      "checked": {
       "items": {
        "$ref": "#/components/schemas/LineOut"
@@ -3116,6 +3630,7 @@
     "required": [
      "aisles",
      "staples",
+     "at_home",
      "checked",
      "dishes",
      "open_count"

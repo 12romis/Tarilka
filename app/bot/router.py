@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import texts
 from app.ai.client import AIClient
-from app.bot.handlers import add, admin, common, drafts, shopping, what
+from app.bot.handlers import add, admin, common, drafts, pantry, shopping, what
 from app.bot.middlewares import AccessMiddleware
 from app.config import Settings
 
@@ -31,7 +31,7 @@ def build_dispatcher(
     dp.message.outer_middleware(access)
     dp.callback_query.outer_middleware(access)
     # Порядок важливий: команди й кнопки — раніше за «будь-який текст» з add.
-    for module in (common, admin, what, shopping, drafts, add):
+    for module in (common, admin, what, shopping, pantry, drafts, add):
         dp.include_router(module.build_router())
     return dp
 

@@ -195,3 +195,17 @@ span.star { cursor: default; }
 .shop--done .shop__name { text-decoration: line-through; color: var(--hint); }
 .section__toggle { border: 0; background: none; padding: 0; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; color: inherit; }
 .chip__x { border: 0; background: none; color: var(--hint); font-size: 18px; line-height: 1; padding: 0 0 0 6px; cursor: pointer; }
+
+/* Холодильник */
+.pantry { display: inline-flex; align-items: center; gap: 2px; padding-right: 8px; }
+.chip__act { border: 0; background: none; font-size: 15px; line-height: 1; padding: 0 2px 0 8px; cursor: pointer; opacity: .75; }
+.cooklist { list-style: none; padding: 0; margin: 0 0 6px; }
+.cook { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--bg2); }
+.cook__link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 0; color: inherit; text-decoration: none; }
+.cook__img { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: var(--bg2); }
+.cook__img--empty { display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.cook__body { min-width: 0; display: flex; flex-direction: column; }
+.cook__title { font-weight: 600; line-height: 1.25; }
+.cook__miss { font-size: 13px; color: var(--hint); }
+.cook__ok { font-size: 13px; color: #2f9e44; }
+.iconbtn { border: 0; background: var(--bg2); border-radius: 10px; width: 40px; height: 40px; font-size: 18px; cursor: pointer; flex: 0 0 40px; }

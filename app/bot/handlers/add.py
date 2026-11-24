@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import texts
 from app.ai.client import AIClient
 from app.bot.cards import render_job
-from app.bot.handlers.shopping import add_from_text, shopping_request
+from app.bot.handlers.pantry import household_reply
 from app.bot.handlers.what import send_what
 from app.bot.util import safe_edit
 from app.bot.views import existing_dish_message
@@ -92,8 +92,10 @@ async def on_text(
     if urls := message_urls(message):
         await enqueue_links(message, session, member, urls, strip_urls(text))
         return
-    if (what := shopping_request(text)) is not None:
-        await add_from_text(message, session, member, ai, what)
+    private = message.chat.type == ChatType.PRIVATE
+    if found := await household_reply(session, member, ai, text, private=private):
+        reply, markup = found
+        await message.answer(reply, parse_mode="HTML", reply_markup=markup)
         return
     if is_what_request(text):
         await send_what(message, session, member)

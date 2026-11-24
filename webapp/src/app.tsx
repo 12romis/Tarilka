@@ -6,6 +6,7 @@ import { AppPage } from "./pages/AppPage";
 import { Catalog } from "./pages/Catalog";
 import { Dish } from "./pages/Dish";
 import { Edit } from "./pages/Edit";
+import { Fridge } from "./pages/Fridge";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
@@ -75,6 +76,7 @@ function page(route: ReturnType<typeof useLocation>["route"], query: URLSearchPa
     case "settings": return <Settings />;
     case "app": return <AppPage />;
     case "shopping": return <Shopping />;
+    case "fridge": return <Fridge />;
     default: return <Home />;
   }
 }

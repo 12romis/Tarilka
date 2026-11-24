@@ -4,7 +4,12 @@ from aiogram.types import InlineKeyboardMarkup
 
 
 async def safe_edit(
-    bot: Bot, chat_id: int, message_id: int, text: str, markup: InlineKeyboardMarkup | None
+    bot: Bot,
+    chat_id: int,
+    message_id: int,
+    text: str,
+    markup: InlineKeyboardMarkup | None,
+    parse_mode: str | None = None,
 ) -> None:
     """Оновлює картку: текст або (для повідомлення з фото) підпис.
 
@@ -12,7 +17,11 @@ async def safe_edit(
     """
     try:
         await bot.edit_message_text(
-            text=text, chat_id=chat_id, message_id=message_id, reply_markup=markup
+            text=text,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=markup,
+            parse_mode=parse_mode,
         )
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
@@ -21,7 +30,11 @@ async def safe_edit(
             raise
         try:
             await bot.edit_message_caption(
-                caption=caption(text), chat_id=chat_id, message_id=message_id, reply_markup=markup
+                caption=caption(text),
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=markup,
+                parse_mode=parse_mode,
             )
         except TelegramBadRequest as e2:
             if "message is not modified" not in str(e2):

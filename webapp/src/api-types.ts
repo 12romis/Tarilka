@@ -358,6 +358,78 @@ export interface paths {
         patch: operations["check_api_shopping_products__product_id__patch"];
         trace?: never;
     };
+    "/api/pantry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pantry */
+        get: operations["get_pantry_api_pantry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pantry/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Items */
+        post: operations["add_items_api_pantry_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pantry/products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Product */
+        post: operations["add_product_api_pantry_products__product_id__post"];
+        /**
+         * Remove Product
+         * @description Закінчилось; to_list=true — одразу в список покупок.
+         */
+        delete: operations["remove_product_api_pantry_products__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pantry/cook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cook */
+        get: operations["cook_api_pantry_cook_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -413,6 +485,21 @@ export interface components {
             cooked_at: string;
             /** Note */
             note: string | null;
+        };
+        /** CookOptionOut */
+        CookOptionOut: {
+            /** Dish Id */
+            dish_id: number;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Thumb */
+            thumb: string | null;
+            /** Have */
+            have: string[];
+            /** Missing */
+            missing: string[];
         };
         /** CookedIn */
         CookedIn: {
@@ -587,6 +674,8 @@ export interface components {
             staple: boolean;
             /** Checked */
             checked: boolean;
+            /** At Home */
+            at_home: boolean;
             /** Amounts */
             amounts: components["schemas"]["AmountOut"][];
             /**
@@ -667,6 +756,36 @@ export interface components {
             /** Total Dishes */
             total_dishes: number;
         };
+        /** PantryAisleOut */
+        PantryAisleOut: {
+            /** Slug */
+            slug: string;
+            /** Emoji */
+            emoji: string;
+            /** Label */
+            label: string;
+            /** Items */
+            items: components["schemas"]["PantryProductOut"][];
+        };
+        /** PantryOut */
+        PantryOut: {
+            /** Aisles */
+            aisles: components["schemas"]["PantryAisleOut"][];
+            /** Count */
+            count: number;
+        };
+        /** PantryProductOut */
+        PantryProductOut: {
+            /** Product Id */
+            product_id: number;
+            /** Name */
+            name: string;
+        };
+        /** PantryTextIn */
+        PantryTextIn: {
+            /** Text */
+            text: string;
+        };
         /** SessionOut */
         SessionOut: {
             /** Id */
@@ -692,6 +811,8 @@ export interface components {
             aisles: components["schemas"]["AisleOut"][];
             /** Staples */
             staples: components["schemas"]["LineOut"][];
+            /** At Home */
+            at_home: components["schemas"]["LineOut"][];
             /** Checked */
             checked: components["schemas"]["LineOut"][];
             /** Dishes */
@@ -1660,6 +1781,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShoppingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pantry_api_pantry_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PantryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_items_api_pantry_items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PantryTextIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PantryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_product_api_pantry_products__product_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PantryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_product_api_pantry_products__product_id__delete: {
+        parameters: {
+            query?: {
+                to_list?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PantryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cook_api_pantry_cook_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                tarilka_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CookOptionOut"][];
                 };
             };
             /** @description Validation Error */

@@ -30,6 +30,14 @@ class DuplicateUrl(Exception):
         self.dish_id = dish_id
 
 
+class HouseholdText(Exception):
+    """Голосове не про страву, а про покупки чи холодильник («купити молоко»)."""
+
+    def __init__(self, transcript: str) -> None:
+        super().__init__(transcript)
+        self.transcript = transcript
+
+
 @dataclass
 class RawExtract:
     """Те, що вдалося дістати з джерела, до нормалізації LLM."""

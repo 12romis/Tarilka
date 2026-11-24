@@ -30,10 +30,10 @@ function toggled(data: ShoppingData, line: ShoppingLine): ShoppingData {
   const moved = { ...line, checked: !line.checked };
   const drop = (ls: ShoppingLine[]) => ls.filter((l) => l.product_id !== line.product_id);
   return line.checked
-    ? { ...data, checked: drop(data.checked), aisles: data.aisles, staples: data.staples,
-        open_count: data.open_count + 1 }
+    ? { ...data, checked: drop(data.checked), open_count: data.open_count + 1 }
     : { ...data, aisles: data.aisles.map((a) => ({ ...a, lines: drop(a.lines) })).filter((a) => a.lines.length),
-        staples: drop(data.staples), checked: [moved, ...data.checked], open_count: data.open_count - 1 };
+        staples: drop(data.staples), at_home: drop(data.at_home), checked: [moved, ...data.checked],
+        open_count: data.open_count - (line.at_home ? 0 : 1) };
 }
 
 export function Shopping() {
@@ -42,6 +42,7 @@ export function Shopping() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [showStaples, setShowStaples] = useState(false);
+  const [showHome, setShowHome] = useState(false);
 
   const load = () => api.shopping().then(setData, setError);
   useEffect(() => {
@@ -84,7 +85,7 @@ export function Shopping() {
     if (await confirm("Очистити весь список покупок?")) run(api.shopClear(false));
   };
 
-  const empty = !data.aisles.length && !data.staples.length && !data.checked.length;
+  const empty = !data.aisles.length && !data.staples.length && !data.at_home.length && !data.checked.length;
 
   return (
     <main class="page">
@@ -137,12 +138,24 @@ export function Shopping() {
         </section>
       )}
 
+      {data.at_home.length > 0 && (
+        <section class="section">
+          <button class="section__toggle" onClick={() => setShowHome(!showHome)}>
+            🧊 Уже є вдома ({data.at_home.length}) {showHome ? "▾" : "▸"}
+          </button>
+          {showHome
+            ? <ul class="shoplist">{data.at_home.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
+            : <p class="muted small">{data.at_home.map((l) => l.name).join(", ")}</p>}
+        </section>
+      )}
+
       {data.checked.length > 0 && (
         <section class="section">
           <div class="section__head">
             <h2>✓ Куплено ({data.checked.length})</h2>
             <button class="linkbtn" onClick={() => run(api.shopClear(true))}>Прибрати</button>
           </div>
+          <p class="muted small">Куплене вже в холодильнику 🧊</p>
           <ul class="shoplist">{data.checked.map((l) => <Line line={l} onToggle={toggle} />)}</ul>
         </section>
       )}

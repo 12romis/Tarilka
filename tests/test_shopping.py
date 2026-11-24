@@ -129,7 +129,7 @@ async def test_ai_failure_falls_back_without_caching(session, ctx) -> None:
 async def test_check_and_clear(session, ctx) -> None:
     await shopping.add_dish(session, FakeAI([lasagna_ai()]), ctx["lasagna"], ctx["igor"])
     eggs = await session.scalar(select(Product).where(Product.name == "яйця"))
-    await shopping.set_checked(session, 1, eggs.id, True)
+    await shopping.set_checked(session, 1, eggs.id, True, ctx["igor"])
     view = await shopping.load_view(session, 1)
     assert [line.name for line in view.lines if line.checked] == ["яйця"]
     assert view.open_count == 2

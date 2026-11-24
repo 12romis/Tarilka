@@ -4,6 +4,9 @@
 по продукту й одиниці (кг → г, л → мл). Назви інгредієнтів з рецептів («зубці часнику»,
 «Куряче яйце») AI один раз зводить до канонічного продукту з відділом магазину; відповідність
 кешується в ingredient_products, тож повторні додавання не кличуть AI.
+
+Те, що є в холодильнику (services/pantry), показується окремо — «є вдома»; куплене
+потрапляє в холодильник.
 """
 
 import logging
@@ -12,13 +15,13 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import AIClient, AIError
 from app.ai.pricing import total_cost
-from app.db.models import Dish, IngredientProduct, Member, Product, ShoppingItem
+from app.db.models import Dish, IngredientProduct, Member, PantryItem, Product, ShoppingItem
 from app.services.units import canonical_unit
 
 log = logging.getLogger(__name__)
@@ -67,9 +70,11 @@ CANON_SYSTEM = (
 
 TEXT_SYSTEM = (
     """\
-Користувач диктує або пише, що треба купити («молоко 2 л, хліб і десяток яєць»). Поверни \
-items — по одному на продукт: product, qty (число або null), unit (г, кг, мл, л, шт. або \
-null), aisle, staple, skip. Кількість не вигадуй; «десяток» — 10 шт.
+Тобі дають список відомих продуктів сім'ї (лише для звірки назв) і текст користувача між \
+<text> і </text> — що купити або що є вдома. Поверни items — по одному на кожен продукт, \
+названий у ТЕКСТІ (нічого не додавай від себе й не бери з відомих продуктів): product, qty \
+(число або null), unit (г, кг, мл, л, шт. або null), aisle, staple, skip. Кількість не вигадуй; \
+«десяток» — 10 шт.
 """
     + _RULES
 )
@@ -209,26 +214,43 @@ async def add_dish(
     return added
 
 
-async def add_text(session: AsyncSession, ai: AIClient | None, member: Member, text: str) -> int:
-    """«молоко 2 л, хліб» → рядки списку. Без AI — кожен пункт через кому як є."""
+def after_trigger(text: str, triggers: tuple[str, ...]) -> str | None:
+    """Текст після тригера («купити молоко» → «молоко»); None — тригера немає."""
+    t = text.strip()
+    low = t.lower()
+    for trigger in triggers:
+        if low.startswith(trigger):
+            return t[len(trigger) :].strip(" :,-—.")
+    return None
+
+
+async def parse_products(
+    session: AsyncSession, ai: AIClient | None, family_id: int, text: str
+) -> list[tuple[Product, TextItem]]:
+    """«молоко 2 л, хліб» → продукти сім'ї (нові створюються). Без AI — пункти через кому як є."""
     items: list[TextItem] = []
     if ai is not None:
-        prompt = _known_block(await _known_names(session, member.family_id)) + "\n\n" + text
+        known = _known_block(await _known_names(session, family_id))
+        prompt = f"{known}\n\n<text>\n{text}\n</text>"
         try:
             out, meta = await ai.structured(TEXT_SYSTEM, prompt, TextOut)
             items = out.items
-            log.info("shopping text: %d продуктів, $%.5f", len(items), total_cost(meta))
+            log.info("products from text: %d, $%.5f", len(items), total_cost(meta))
         except AIError:
-            log.exception("add_text: AI недоступний, ділю за комами")
+            log.exception("parse_products: AI недоступний, ділю за комами")
     if not items:
         items = [
             TextItem(product=p, qty=None, unit=None, aisle="other", staple=False, skip=False)
             for p in (s.strip() for s in text.replace("\n", ",").split(","))
             if p
         ]
+    return [(await _upsert_product(session, family_id, it), it) for it in items]
+
+
+async def add_text(session: AsyncSession, ai: AIClient | None, member: Member, text: str) -> int:
+    """«молоко 2 л, хліб» → рядки списку."""
     added = 0
-    for it in items:
-        product = await _upsert_product(session, member.family_id, it)
+    for product, it in await parse_products(session, ai, member.family_id, text):
         if product.skip:
             continue
         qty = it.qty if it.qty and it.qty > 0 else None
@@ -246,6 +268,22 @@ async def add_text(session: AsyncSession, ai: AIClient | None, member: Member, t
     return added
 
 
+async def add_product(session: AsyncSession, member: Member, product_id: int) -> None:
+    """Продукт без кількості (наприклад, закінчився в холодильнику)."""
+    exists = await session.scalar(
+        select(ShoppingItem.id).where(
+            ShoppingItem.family_id == member.family_id,
+            ShoppingItem.product_id == product_id,
+            ShoppingItem.checked_at.is_(None),
+        )
+    )
+    if exists is None:
+        session.add(
+            ShoppingItem(family_id=member.family_id, product_id=product_id, added_by=member.id)
+        )
+    await session.commit()
+
+
 async def remove_dish(session: AsyncSession, family_id: int, dish_id: int) -> None:
     await session.execute(
         delete(ShoppingItem).where(
@@ -256,13 +294,35 @@ async def remove_dish(session: AsyncSession, family_id: int, dish_id: int) -> No
 
 
 async def set_checked(
-    session: AsyncSession, family_id: int, product_id: int, checked: bool
+    session: AsyncSession, family_id: int, product_id: int, checked: bool, member: Member
 ) -> None:
-    """Відмітка стосується продукту цілком — усіх його рядків (з усіх страв)."""
+    """Відмітка стосується продукту цілком — усіх його рядків (з усіх страв).
+
+    Куплене потрапляє в холодильник; зняв відмітку — повертається, як було.
+    """
+    from app.services import pantry  # pantry імпортує цей модуль
+
+    now = datetime.now(UTC)
+    if checked:
+        await pantry.add(session, member, [product_id], at=now, commit=False)
+    else:
+        since = await session.scalar(
+            select(func.min(ShoppingItem.checked_at)).where(
+                ShoppingItem.family_id == family_id, ShoppingItem.product_id == product_id
+            )
+        )
+        if since is not None:  # прибрати лише те, що поклала саме ця відмітка
+            await session.execute(
+                delete(PantryItem).where(
+                    PantryItem.family_id == family_id,
+                    PantryItem.product_id == product_id,
+                    PantryItem.created_at >= since,
+                )
+            )
     await session.execute(
         update(ShoppingItem)
         .where(ShoppingItem.family_id == family_id, ShoppingItem.product_id == product_id)
-        .values(checked_at=datetime.now(UTC) if checked else None)
+        .values(checked_at=now if checked else None)
     )
     await session.commit()
 
@@ -295,6 +355,7 @@ class Line:
     aisle: str
     staple: bool
     checked: bool
+    at_home: bool  # є в холодильнику
     parts: list[tuple[float, str | None]]  # [(кількість, одиниця)] після зведення
     no_qty: bool  # є рядки без кількості («сіль» — за смаком)
     sources: list[str]
@@ -314,7 +375,7 @@ class ShoppingView:
 
     @property
     def open_count(self) -> int:
-        return sum(1 for line in self.lines if not line.checked)
+        return sum(1 for line in self.lines if not line.checked and not line.at_home)
 
 
 def sum_parts(
@@ -350,6 +411,11 @@ async def load_view(session: AsyncSession, family_id: int) -> ShoppingView:
             .order_by(ShoppingItem.id)
         )
     ).all()
+    at_home = set(
+        await session.scalars(
+            select(PantryItem.product_id).where(PantryItem.family_id == family_id)
+        )
+    )
     by_product: dict[int, list] = {}
     dishes: dict[int, ListedDish] = {}
     for item, product, title, member_name in rows:
@@ -370,6 +436,7 @@ async def load_view(session: AsyncSession, family_id: int) -> ShoppingView:
                 aisle=product.aisle if product.aisle in AISLES else "other",
                 staple=product.staple,
                 checked=not open_items,
+                at_home=bool(open_items) and product.id in at_home,
                 parts=parts,
                 no_qty=no_qty,
                 sources=sources,

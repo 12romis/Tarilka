@@ -311,3 +311,15 @@ class ShoppingItem(Base):
     added_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
+
+
+class PantryItem(Base):
+    """Продукт, що є вдома (холодильник, шафа). Лише наявність, без кількості."""
+
+    __tablename__ = "pantry_items"
+    __table_args__ = (Index("uq_pantry_family_product", "family_id", "product_id", unique=True),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("families.id", ondelete="CASCADE"))
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    added_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
